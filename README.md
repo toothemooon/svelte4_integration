@@ -1,6 +1,6 @@
 # Old Svelte & Flask Project
 
-A beginner-friendly project that connects a Svelte frontend with a Flask backend using SQLite for data storage. This project demonstrates how to build a simple full-stack web application.
+A beginner-friendly project that connects a Svelte frontend with a Flask backend using SQLite for data storage. This project demonstrates how to build a simple full-stack web application with a blog-style interface.
 
 ## Project Overview
 
@@ -14,22 +14,27 @@ The frontend makes API calls to the backend to fetch data, which is then display
 
 ```
 old_svelte/
-├── frontend/              # Svelte frontend application
-│   ├── public/            # Static assets and HTML template
-│   ├── src/               # Source code
-│   │   ├── App.svelte     # Main application component
-│   │   └── main.js        # Entry point
-│   ├── package.json       # NPM dependencies and scripts
-│   └── rollup.config.js   # Rollup bundler configuration
+├── frontend/                # Svelte frontend application
+│   ├── public/              # Static assets and HTML template
+│   ├── src/                 # Source code
+│   │   ├── components/      # UI components
+│   │   │   ├── Navbar.svelte  # Navigation component
+│   │   │   ├── Home.svelte    # Blog listing page
+│   │   │   ├── Post.svelte    # Individual blog post view
+│   │   │   └── About.svelte   # About page
+│   │   ├── App.svelte       # Main application component with routing
+│   │   └── main.js          # Entry point
+│   ├── package.json         # NPM dependencies and scripts
+│   └── rollup.config.js     # Rollup bundler configuration
 │
-├── backend/               # Flask backend application
-│   ├── app.py             # Main Flask application
-│   ├── schema.sql         # SQL schema for database
-│   ├── init_db.py         # Script to initialize the database
-│   ├── requirements.txt   # Python dependencies
-│   └── database.db        # SQLite database file
+├── backend/                 # Flask backend application
+│   ├── app.py               # Main Flask application
+│   ├── schema.sql           # SQL schema for database
+│   ├── init_db.py           # Script to initialize the database
+│   ├── requirements.txt     # Python dependencies
+│   └── database.db          # SQLite database file
 │
-└── README.md              # This documentation file
+└── README.md                # This documentation file
 ```
 
 ## Setup and Installation
@@ -77,26 +82,40 @@ npm run dev
 
 The frontend will be available at http://localhost:8080
 
+## Frontend Features
+
+The frontend is a blog application with the following features:
+
+### Home Page
+- Displays a list of blog posts with titles, excerpts, and dates
+- Each post card is clickable and navigates to the individual post view
+- Accessible design with keyboard navigation support
+
+### Post Page
+- Displays a single blog post with title, author, date, and content
+- Dynamic routing with URL parameters: `/post/:id`
+- Loading states and error handling
+
+### Navigation
+- Responsive navigation bar with links to Home and About pages
+- Active link highlighting
+- Client-side routing with svelte-spa-router
+
 ## Understanding the Files
 
 ### Frontend (Svelte)
 
 - **src/main.js**: The entry point of the application. It creates and mounts the main Svelte component.
-  ```javascript
-  import App from './App.svelte';
-  
-  const app = new App({
-    target: document.body
-  });
-  
-  export default app;
-  ```
 
-- **src/App.svelte**: The main component that contains the user interface and logic for fetching data from the backend.
-  ```javascript
-  // Contains HTML template, JavaScript logic to fetch data from APIs, 
-  // and CSS styles for the component
-  ```
+- **src/App.svelte**: The main component that sets up routing and includes the Navbar component.
+
+- **src/components/Navbar.svelte**: Navigation component with client-side routing.
+
+- **src/components/Home.svelte**: Blog listing page that displays a list of posts.
+
+- **src/components/Post.svelte**: Individual post view that displays a single blog post based on the ID.
+
+- **src/components/About.svelte**: Simple about page with information.
 
 - **public/index.html**: The HTML template that loads the bundled JavaScript and CSS.
 
@@ -107,28 +126,12 @@ The frontend will be available at http://localhost:8080
 ### Backend (Flask)
 
 - **app.py**: The main Flask application that defines API routes, database connection, and handles requests.
-  ```python
-  # Key parts:
-  # - Database connection setup
-  # - API route definitions
-  # - Flask app configuration with CORS
-  ```
 
 - **schema.sql**: Defines the database tables and structure.
-  ```sql
-  -- Creates users table with id, username, and email fields
-  ```
 
 - **init_db.py**: Script that initializes the database with the schema and adds sample users.
-  ```python
-  # Runs the schema SQL and inserts sample data
-  ```
 
-- **requirements.txt**: Lists the Python packages needed to run the application:
-  ```
-  flask==2.3.3
-  flask-cors==4.0.0
-  ```
+- **requirements.txt**: Lists the Python packages needed to run the application.
 
 - **database.db**: The SQLite database file that stores the data.
 
@@ -144,6 +147,14 @@ The backend provides these API endpoints:
 
 - **GET /api/users** - Retrieves the list of users from the database
   - Returns: Array of user objects with id, username, and email
+
+## Future Enhancements
+
+To fully implement the blog functionality, consider adding these API endpoints:
+
+- **GET /api/posts** - Retrieve all blog posts
+- **GET /api/posts/:id** - Retrieve a specific blog post by ID
+- **POST /api/posts** - Create a new blog post
 
 ## How the Connection Works
 

@@ -23,7 +23,7 @@
 		<div class="logo">
 			<!-- Logo link with click handler to navigate to home -->
 			<!-- on:click|preventDefault prevents default behavior and calls our custom navigate function -->
-			<a href="/" on:click|preventDefault={(e) => navigate('/', e)}>My App</a>
+			<a href="/" on:click|preventDefault={(e) => navigate('/', e)}>My Blog</a>
 		</div>
 		
 		<!-- Navigation links on the right side -->
@@ -33,9 +33,6 @@
 			<!-- when the condition is true, highlighting the current page -->
 			<li class:active={currentPath === '/'}>
 				<a href="/" on:click|preventDefault={(e) => navigate('/', e)}>Home</a>
-			</li>
-			<li class:active={currentPath === '/create'}>
-				<a href="/create" on:click|preventDefault={(e) => navigate('/create', e)}>Create Post</a>
 			</li>
 			<li class:active={currentPath === '/about'}>
 				<a href="/about" on:click|preventDefault={(e) => navigate('/about', e)}>About</a>

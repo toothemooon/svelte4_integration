@@ -8,7 +8,7 @@
 	// Import our components
 	import Navbar from './components/Navbar.svelte';
 	import Home from './components/Home.svelte';
-	import CreatePost from './components/CreatePost.svelte';
+	import Post from './components/Post.svelte';
 	import About from './components/About.svelte';
 	
 	let backendStatus = 'Loading...';
@@ -19,7 +19,7 @@
 	// This maps URL paths to their corresponding components
 	const routes = {
 		'/': Home,        // Home page at root URL
-		'/create': CreatePost,  // Create Post page
+		'/post/:id': Post,  // Post detail page with ID parameter
 		'/about': About   // About page
 	};
 	
