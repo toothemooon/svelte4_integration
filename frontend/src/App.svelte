@@ -7,6 +7,7 @@
 	
 	// Import our components
 	import Navbar from './components/Navbar.svelte';
+	import Footer from './components/Footer.svelte';
 	import Home from './components/Home.svelte';
 	import Post from './components/Post.svelte';
 	import About from './components/About.svelte';
@@ -52,87 +53,32 @@
 	});
 </script>
 
-<!-- The Navbar component receives the current route path from the location store -->
-<!-- The $ prefix means we're subscribing to the store's value -->
-<Navbar currentPath={$location} />
+<div class="app-container">
+	<!-- The Navbar component receives the current route path from the location store -->
+	<!-- The $ prefix means we're subscribing to the store's value -->
+	<Navbar currentPath={$location} />
 
-<!-- Main content area where different components are rendered based on the route -->
-<!-- The Router component handles switching between components -->
-<div class="content">
-	<Router {routes} />
+	<!-- Main content area where different components are rendered based on the route -->
+	<!-- The Router component handles switching between components -->
+	<div class="content">
+		<Router {routes} />
+	</div>
+
+	<!-- Footer component with backend status and user info -->
+	<Footer {backendStatus} {users} {error} />
 </div>
 
-<!-- Footer with backend information -->
-<footer>
-	<div class="card">
-		<h3>Backend Connection</h3>
-		{#if error}
-			<p class="error">{error}</p>
-		{:else}
-			<p>Status: {backendStatus}</p>
-		{/if}
-	</div>
-	
-	<div class="card">
-		<h3>Users from Database</h3>
-		{#if users.length === 0}
-			<p>No users found or still loading...</p>
-		{:else}
-			<ul>
-				{#each users as user}
-					<li>{user.username} ({user.email})</li>
-				{/each}
-			</ul>
-		{/if}
-	</div>
-</footer>
-
 <style>
-	/* Content area with minimum height to push footer down */
+	/* Overall app container */
+	.app-container {
+		display: flex;
+		flex-direction: column;
+		min-height: 100vh;
+	}
+
+	/* Content area that grows to fill available space */
 	.content {
-		min-height: calc(100vh - 200px);
-	}
-	
-	/* Footer styling */
-	footer {
-		text-align: center;
-		padding: 1em;
-		max-width: 640px;
-		margin: 0 auto;
-	}
-
-	/* Heading style in the footer */
-	h3 {
-		color: #ff3e00;
-		font-weight: 400;
-		margin-bottom: 0.5em;
-	}
-	
-	/* Card style for info sections */
-	.card {
-		background-color: #f9f9f9;
-		border-radius: 8px;
-		padding: 1em;
-		margin: 1em 0;
-		box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-	}
-	
-	/* Error text styling */
-	.error {
-		color: #d33;
-	}
-	
-	/* User list styling */
-	ul {
-		text-align: left;
-		margin: 0 auto;
-		max-width: 400px;
-	}
-
-	/* Responsive design for larger screens */
-	@media (min-width: 640px) {
-		footer {
-			max-width: 800px;
-		}
+		flex: 1;
+		margin-bottom: 2rem;
 	}
 </style>
