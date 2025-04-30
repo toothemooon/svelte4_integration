@@ -66,7 +66,7 @@
 <!-- The .page class provides consistent styling across all page components -->
 <div class="page">
     <h1>Welcome to my blog site!</h1>
-    <p class="intro">This is a simple blog site built with Svelte. Click on any post to read more.</p>
+    <p class="intro">This is a simple blog site. Click on any post to read more.</p>
     
     <!-- Blog posts list -->
     <div class="posts-container">
