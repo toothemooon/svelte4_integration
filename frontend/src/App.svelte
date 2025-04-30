@@ -12,7 +12,7 @@
 	import Post from './components/Post.svelte';
 	import About from './components/About.svelte';
 	
-	let backendStatus = 'Loading...';
+	// let backendStatus = 'Loading...';
 	let users = [];
 	let error = null;
 	
@@ -29,7 +29,7 @@
 		try {
 			const response = await fetch('http://localhost:5001/api/health');
 			const data = await response.json();
-			backendStatus = data.message;
+			// backendStatus = data.message;
 		} catch (err) {
 			error = "Failed to connect to backend. Make sure it's running on port 5001.";
 			console.error(err);
