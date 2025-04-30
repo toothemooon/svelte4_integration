@@ -1,8 +1,10 @@
-from flask import Flask, g
+from flask import Flask, g, jsonify
 import sqlite3
 import os
+from flask_cors import CORS
 
 app = Flask(__name__)
+CORS(app)  # Enable CORS for all routes
 
 # Store database in the project directory
 DATABASE = 'database.db'
@@ -35,5 +37,16 @@ def index():
     result = cursor.fetchone()
     return f"Database connection successful: {result[0]}"
 
+@app.route('/api/users', methods=['GET'])
+def get_users():
+    db = get_db()
+    cursor = db.execute('SELECT * FROM users')
+    users = [dict(id=row[0], username=row[1], email=row[2]) for row in cursor.fetchall()]
+    return jsonify(users)
+
+@app.route('/api/health', methods=['GET'])
+def health_check():
+    return jsonify({"status": "ok", "message": "Flask backend is running"})
+
 if __name__ == '__main__':
-    app.run(debug=True) 
+    app.run(debug=True, port=5001) 
