@@ -5,9 +5,10 @@ This file is the main entry point for the Flask backend application.
 It sets up a web server with API endpoints that connect to an SQLite database.
 """
 
-from flask import Flask, g, jsonify  # Flask web framework, global context, JSON response helper
+from flask import Flask, g, jsonify, request  # Flask web framework, global context, JSON response helper, request parser
 import sqlite3                       # SQLite database library
 from flask_cors import CORS          # Cross-Origin Resource Sharing (allows frontend to call backend APIs)
+import datetime                      # For timestamp handling
 
 # Create a new Flask application
 app = Flask(__name__)
@@ -108,6 +109,91 @@ Returns:
 @app.route('/api/health', methods=['GET'])
 def health_check():
     return jsonify({"status": "ok", "message": "Flask backend is running"})
+
+'''
+Get all comments for a specific post.
+
+Args:
+    post_id (int): ID of the post to get comments for
+    
+Returns:
+    flask.Response: JSON response with comments data
+'''
+@app.route('/api/posts/<int:post_id>/comments', methods=['GET'])
+def get_post_comments(post_id):
+    db = get_db()
+    cursor = db.execute('SELECT * FROM comments WHERE post_id = ? ORDER BY timestamp DESC', (post_id,))
+    
+    # Convert database rows to dictionaries for JSON serialization
+    comments = [dict(id=row[0], post_id=row[1], content=row[2], timestamp=row[3]) for row in cursor.fetchall()]
+    
+    return jsonify(comments)
+
+'''
+Add a new comment to a specific post.
+
+Args:
+    post_id (int): ID of the post to add a comment to
+    
+Returns:
+    flask.Response: JSON response with the newly created comment
+'''
+@app.route('/api/posts/<int:post_id>/comments', methods=['POST'])
+def add_post_comment(post_id):
+    # Get the request data as JSON
+    request_data = request.get_json()
+    
+    # Check if the required field exists
+    if not request_data or 'content' not in request_data:
+        return jsonify({"error": "Comment content is required"}), 400
+    
+    content = request_data['content']
+    
+    # Insert the new comment into the database
+    db = get_db()
+    cursor = db.execute('INSERT INTO comments (post_id, content) VALUES (?, ?)', (post_id, content))
+    db.commit()
+    
+    # Get the ID of the newly inserted comment
+    new_id = cursor.lastrowid
+    
+    # Get the current timestamp in ISO format
+    timestamp = datetime.datetime.now().isoformat()
+    
+    # Return the new comment as JSON
+    return jsonify({
+        "id": new_id,
+        "post_id": post_id,
+        "content": content,
+        "timestamp": timestamp,
+        "message": "Comment added successfully"
+    }), 201
+
+'''
+Delete a comment.
+
+Args:
+    comment_id (int): ID of the comment to delete
+    
+Returns:
+    flask.Response: JSON response with result of deletion
+'''
+@app.route('/api/comments/<int:comment_id>', methods=['DELETE'])
+def delete_comment(comment_id):
+    db = get_db()
+    
+    # Check if the comment exists
+    cursor = db.execute('SELECT id FROM comments WHERE id = ?', (comment_id,))
+    comment = cursor.fetchone()
+    
+    if not comment:
+        return jsonify({"error": f"Comment with ID {comment_id} not found"}), 404
+    
+    # Delete the comment
+    db.execute('DELETE FROM comments WHERE id = ?', (comment_id,))
+    db.commit()
+    
+    return jsonify({"message": f"Comment {comment_id} deleted successfully"}), 200
 
 # Start the Flask application when run directly
 if __name__ == '__main__':

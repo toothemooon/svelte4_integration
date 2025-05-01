@@ -70,6 +70,7 @@
     
     <!-- Blog posts list -->
     <div class="posts-container">
+        <h2>Blog Posts</h2>
         {#if loading}
             <div class="loading">Loading posts...</div>
         {:else if error}
@@ -114,6 +115,12 @@
     /* Svelte's orange brand color for the main heading */
     h1 {
         color: #ff3e00;
+    }
+    
+    h2 {
+        color: #333;
+        margin-top: 2rem;
+        margin-bottom: 1rem;
     }
     
     /* Style for intro paragraph */

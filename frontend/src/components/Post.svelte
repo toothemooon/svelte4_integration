@@ -3,6 +3,7 @@
     // It displays a single blog post based on the ID in the URL parameter
     import { onMount } from 'svelte';
     import { params } from 'svelte-spa-router';
+    import Comments from './Comments.svelte';
     
     // State for the post data
     let post = null;
@@ -62,6 +63,9 @@
             <div class="post-actions">
                 <a href="/" class="back-button">← Back to posts</a>
             </div>
+            
+            <!-- Comments section for this post -->
+            <Comments postId={post.id} />
         </article>
     {/if}
 </div>

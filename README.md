@@ -21,6 +21,8 @@ old_svelte/
 │   │   │   ├── Navbar.svelte  # Navigation component
 │   │   │   ├── Home.svelte    # Blog listing page
 │   │   │   ├── Post.svelte    # Individual blog post view
+│   │   │   ├── Comments.svelte # Post-specific comments component
+│   │   │   ├── Footer.svelte  # Simple footer with credits
 │   │   │   └── About.svelte   # About page
 │   │   ├── App.svelte       # Main application component with routing
 │   │   └── main.js          # Entry point
@@ -95,11 +97,21 @@ The frontend is a blog application with the following features:
 - Displays a single blog post with title, author, date, and content
 - Dynamic routing with URL parameters: `/post/:id`
 - Loading states and error handling
+- Post-specific comments section where users can add, view, and delete comments
+
+### Comments System
+- Each blog post has its own unique set of comments
+- Users can add new comments to specific posts
+- Users can delete comments with a confirmation dialog
+- Comments display content and timestamp
 
 ### Navigation
 - Responsive navigation bar with links to Home and About pages
 - Active link highlighting
 - Client-side routing with svelte-spa-router
+
+### Footer
+- Simple, minimalist footer with credits
 
 ## Understanding the Files
 
@@ -107,13 +119,17 @@ The frontend is a blog application with the following features:
 
 - **src/main.js**: The entry point of the application. It creates and mounts the main Svelte component.
 
-- **src/App.svelte**: The main component that sets up routing and includes the Navbar component.
+- **src/App.svelte**: The main component that sets up routing and includes the Navbar and Footer components.
 
 - **src/components/Navbar.svelte**: Navigation component with client-side routing.
 
 - **src/components/Home.svelte**: Blog listing page that displays a list of posts.
 
-- **src/components/Post.svelte**: Individual post view that displays a single blog post based on the ID.
+- **src/components/Post.svelte**: Individual post view that displays a single blog post based on the ID and includes the Comments component.
+
+- **src/components/Comments.svelte**: Component for displaying, adding, and deleting comments for a specific post.
+
+- **src/components/Footer.svelte**: Simple footer with credits.
 
 - **src/components/About.svelte**: Simple about page with information.
 
@@ -127,9 +143,9 @@ The frontend is a blog application with the following features:
 
 - **app.py**: The main Flask application that defines API routes, database connection, and handles requests.
 
-- **schema.sql**: Defines the database tables and structure.
+- **schema.sql**: Defines the database tables and structure (users, messages, and comments).
 
-- **init_db.py**: Script that initializes the database with the schema and adds sample users.
+- **init_db.py**: Script that initializes the database with the schema and adds sample users and comments.
 
 - **requirements.txt**: Lists the Python packages needed to run the application.
 
@@ -148,6 +164,16 @@ The backend provides these API endpoints:
 - **GET /api/users** - Retrieves the list of users from the database
   - Returns: Array of user objects with id, username, and email
 
+- **GET /api/posts/:post_id/comments** - Retrieves all comments for a specific post
+  - Returns: Array of comment objects with id, post_id, content, and timestamp
+
+- **POST /api/posts/:post_id/comments** - Adds a new comment to a specific post
+  - Request: JSON object with content field
+  - Returns: Created comment object
+
+- **DELETE /api/comments/:comment_id** - Deletes a specific comment
+  - Returns: Success message with the deleted comment ID
+
 ## Future Enhancements
 
 To fully implement the blog functionality, consider adding these API endpoints:
@@ -155,6 +181,7 @@ To fully implement the blog functionality, consider adding these API endpoints:
 - **GET /api/posts** - Retrieve all blog posts
 - **GET /api/posts/:id** - Retrieve a specific blog post by ID
 - **POST /api/posts** - Create a new blog post
+- **User authentication system** - Allow users to register, login, and have personalized experiences
 
 ## How the Connection Works
 
