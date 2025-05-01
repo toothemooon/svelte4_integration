@@ -157,6 +157,29 @@ The frontend is a blog application with the following features:
 ### Footer
 - Simple, minimalist footer with credits
 
+## Frontend-Backend Connection
+
+The project uses a flexible configuration system that allows the frontend to connect to different backend environments:
+
+- **Development**: When running locally, the frontend connects to `http://localhost:5001`
+- **Production**: When deployed to Vercel or accessed from a non-localhost domain, it connects to the Azure backend at `https://sarada-hbegajbsfxekdyex.canadacentral-01.azurewebsites.net`
+
+This configuration is managed in `frontend/src/config.js` and automatically detects which environment is being used.
+
+### Cross-Origin Resource Sharing (CORS)
+
+The backend is configured with proper CORS headers to allow the frontend to make cross-origin requests for all HTTP methods (GET, POST, DELETE) regardless of where it's hosted.
+
+### Fallback Behavior
+
+The application includes fallback mechanisms to handle cases where the backend might be unavailable:
+
+- If comment retrieval fails, the UI will show an appropriate error message
+- When adding or deleting comments, if the backend is unavailable, the frontend will simulate the operations locally
+- The home page shows hardcoded sample posts if the backend post API is not available
+
+These fallbacks provide a more resilient user experience when working with a distributed architecture.
+
 ## Understanding the Files
 
 ### Frontend (Svelte)
@@ -182,6 +205,8 @@ The frontend is a blog application with the following features:
 - **package.json**: Contains the project metadata, dependencies, and npm scripts.
 
 - **rollup.config.js**: Configuration for the Rollup bundler that builds the project.
+
+- **src/config.js**: Manages backend API URL configuration based on the current environment.
 
 ### Backend (Flask)
 
@@ -275,5 +300,10 @@ The connection between frontend and backend is enabled by CORS (Cross-Origin Res
 - Check browser console (F12) for any network errors and API responses
 - Make sure both servers (frontend and backend) are running simultaneously
 - If you see CORS errors, verify that Flask-CORS is installed and configured properly 
-- For database issues, you can reset the database by running `init_db.py` 
-- For Azure deployment issues, check the logs with `az webapp log tail --resource-group YOUR_RESOURCE_GROUP --name YOUR_APP_NAME` 
+- For database issues, you can reset the database by running `init_db.py`
+- For Azure deployment issues, check the logs with `az webapp log tail --resource-group YOUR_RESOURCE_GROUP --name YOUR_APP_NAME`
+- If the frontend displays a blank page, check your browser console for JavaScript errors
+- When running the frontend locally, ensure you're accessing it from the exact URL shown in the terminal (typically http://localhost:8080)
+- Remember that you must run terminal commands from the correct directory:
+  - For frontend commands: `cd frontend && npm run dev`
+  - For backend commands: `cd backend && python app.py`
