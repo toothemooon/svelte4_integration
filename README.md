@@ -34,7 +34,11 @@ old_svelte/
 │   ├── schema.sql           # SQL schema for database (users and comments)
 │   ├── init_db.py           # Script to initialize the database
 │   ├── requirements.txt     # Python dependencies
-│   └── database.db          # SQLite database file
+│   ├── database.db          # SQLite database file
+│   └── deploy/              # Deployment scripts and configurations
+│       ├── deploy-to-azure.sh  # Script to deploy backend to Azure
+│       ├── startup.sh       # Azure startup script
+│       └── web.config       # Azure web server configuration
 │
 └── README.md                # This documentation file
 ```
@@ -83,6 +87,46 @@ npm run dev
 ```
 
 The frontend will be available at http://localhost:8080
+
+## Deploying to Azure App Service
+
+The backend includes deployment scripts to easily deploy to Microsoft Azure App Service.
+
+### Prerequisites
+- Azure account with an active subscription
+- Azure CLI installed (`az` command available)
+- An existing Azure App Service (Python runtime)
+
+### Deployment Steps
+
+1. Make sure you're logged in to Azure CLI:
+```
+az login
+```
+
+2. Run the deployment script from the project root:
+```
+./backend/deploy/deploy-to-azure.sh
+```
+
+The script will:
+- Package your backend application
+- Deploy it to your Azure App Service
+- Configure the startup command
+
+3. Your backend API will be available at:
+```
+https://YOUR-APP-NAME.azurewebsites.net
+```
+
+### Testing Deployment
+
+After deployment, you can test the API health check endpoint:
+```
+curl -i https://YOUR-APP-NAME.azurewebsites.net/api/health
+```
+
+You should receive a successful response with `{"status": "ok", "message": "Flask backend is running"}`.
 
 ## Frontend Features
 
@@ -150,6 +194,12 @@ The frontend is a blog application with the following features:
 - **requirements.txt**: Lists the Python packages needed to run the application.
 
 - **database.db**: The SQLite database file that stores the data.
+
+- **deploy/deploy-to-azure.sh**: Script for deploying the backend to Azure App Service.
+
+- **deploy/startup.sh**: Script that Azure App Service runs to start the application.
+
+- **deploy/web.config**: Configuration file for Azure's web server (IIS).
 
 ## API Endpoints
 
@@ -224,5 +274,6 @@ The connection between frontend and backend is enabled by CORS (Cross-Origin Res
 - If port 5000 is in use (common on macOS), the app uses port 5001 instead
 - Check browser console (F12) for any network errors and API responses
 - Make sure both servers (frontend and backend) are running simultaneously
-- If you see CORS errors, verify that Flask-CORS is installed and configured properly
+- If you see CORS errors, verify that Flask-CORS is installed and configured properly 
 - For database issues, you can reset the database by running `init_db.py` 
+- For Azure deployment issues, check the logs with `az webapp log tail --resource-group YOUR_RESOURCE_GROUP --name YOUR_APP_NAME` 

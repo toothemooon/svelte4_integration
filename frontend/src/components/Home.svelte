@@ -3,6 +3,7 @@
     // It's referenced in the routes object in App.svelte
     import { onMount } from 'svelte';
     import { push } from 'svelte-spa-router';
+    import { API_URL } from '../config.js';
     
     // State for blog posts
     let posts = [];
@@ -26,12 +27,21 @@
     // Fetch blog posts when component mounts
     onMount(async () => {
         try {
-            // In a real app, you would fetch from your backend API
-            // For example: const response = await fetch('http://localhost:5001/api/posts');
+            // Try to fetch from backend API - this will only work if the /api/posts endpoint is implemented
+            try {
+                const response = await fetch(`${API_URL}/api/sample`);
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data && data.posts) {
+                        posts = data.posts;
+                        return; // Exit early if we successfully get posts
+                    }
+                }
+            } catch (apiErr) {
+                console.log('API endpoint not available, using sample data', apiErr);
+            }
             
-            // Simulating API response for now
-            await new Promise(resolve => setTimeout(resolve, 300));
-            
+            // Fallback to sample data if the API call fails
             // Simulate posts from database
             posts = [
                 {
@@ -90,7 +100,7 @@
                             aria-label="Read post: {post.title}"
                         >
                             <h2>{post.title}</h2>
-                            <p class="post-excerpt">{post.excerpt}</p>
+                            <p class="post-excerpt">{post.excerpt || post.content}</p>
                             <div class="post-footer">
                                 <span class="post-date">{post.date}</span>
                                 <span class="read-more">Read more →</span>

@@ -9,13 +9,16 @@ from flask import Flask, g, jsonify, request  # Flask web framework, global cont
 import sqlite3                       # SQLite database library
 from flask_cors import CORS          # Cross-Origin Resource Sharing (allows frontend to call backend APIs)
 import datetime                      # For timestamp handling
+import os                           # For environment variables
 
 # Create a new Flask application
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes, allowing the frontend to make API calls to this backend
 
 # Database configuration
-DATABASE = 'database.db'  # Name of the SQLite database file stored in the project directory
+# Use a path that works in both local development and Azure deployment
+DATABASE_DIR = os.environ.get('DATABASE_DIR', os.path.dirname(os.path.abspath(__file__)))
+DATABASE = os.path.join(DATABASE_DIR, 'database.db')
 
 '''
 Get a database connection. 
@@ -197,6 +200,7 @@ def delete_comment(comment_id):
 
 # Start the Flask application when run directly
 if __name__ == '__main__':
-    # Run the app in debug mode (shows detailed errors) on port 5001
+    # Get port from environment variable or default to 5001
+    port = int(os.environ.get('PORT', 5001))
     # Note: Port 5001 is used because port 5000 is often in use on macOS
-    app.run(debug=True, port=5001) 
+    app.run(host='0.0.0.0', debug=True, port=port) 

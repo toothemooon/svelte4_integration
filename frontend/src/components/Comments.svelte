@@ -1,5 +1,6 @@
 <script>
     import { onMount } from 'svelte';
+    import { API_URL } from '../config.js';
     
     // Post ID is a required prop
     export let postId;
@@ -14,7 +15,7 @@
     async function fetchComments() {
         loading = true;
         try {
-            const response = await fetch(`http://localhost:5001/api/posts/${postId}/comments`);
+            const response = await fetch(`${API_URL}/api/posts/${postId}/comments`);
             if (!response.ok) {
                 throw new Error(`HTTP error! Status: ${response.status}`);
             }
@@ -42,7 +43,7 @@
         if (!newComment.trim()) return;
         
         try {
-            const response = await fetch(`http://localhost:5001/api/posts/${postId}/comments`, {
+            const response = await fetch(`${API_URL}/api/posts/${postId}/comments`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -86,7 +87,7 @@
         if (!confirm('Are you sure you want to delete this comment?')) return;
         
         try {
-            const response = await fetch(`http://localhost:5001/api/comments/${id}`, {
+            const response = await fetch(`${API_URL}/api/comments/${id}`, {
                 method: 'DELETE'
             });
             
