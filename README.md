@@ -1,6 +1,6 @@
 # Old Svelte & Flask Project
 
-A beginner-friendly project that connects a Svelte frontend with a Flask backend using SQLite for data storage. This project demonstrates how to build a simple full-stack web application with a blog-style interface.
+A beginner-friendly project that connects a Svelte frontend with a Flask backend using SQLite for data storage. This project demonstrates how to build a simple full-stack web application with a blog-style interface that supports post-specific comments.
 
 ## Project Overview
 
@@ -20,7 +20,7 @@ old_svelte/
 │   │   ├── components/      # UI components
 │   │   │   ├── Navbar.svelte  # Navigation component
 │   │   │   ├── Home.svelte    # Blog listing page
-│   │   │   ├── Post.svelte    # Individual blog post view
+│   │   │   ├── Post.svelte    # Individual blog post view with comments
 │   │   │   ├── Comments.svelte # Post-specific comments component
 │   │   │   ├── Footer.svelte  # Simple footer with credits
 │   │   │   └── About.svelte   # About page
@@ -31,7 +31,7 @@ old_svelte/
 │
 ├── backend/                 # Flask backend application
 │   ├── app.py               # Main Flask application
-│   ├── schema.sql           # SQL schema for database
+│   ├── schema.sql           # SQL schema for database (users and comments)
 │   ├── init_db.py           # Script to initialize the database
 │   ├── requirements.txt     # Python dependencies
 │   └── database.db          # SQLite database file
@@ -96,8 +96,8 @@ The frontend is a blog application with the following features:
 ### Post Page
 - Displays a single blog post with title, author, date, and content
 - Dynamic routing with URL parameters: `/post/:id`
+- Post-specific comments section that allows users to add and delete comments
 - Loading states and error handling
-- Post-specific comments section where users can add, view, and delete comments
 
 ### Comments System
 - Each blog post has its own unique set of comments
@@ -143,7 +143,7 @@ The frontend is a blog application with the following features:
 
 - **app.py**: The main Flask application that defines API routes, database connection, and handles requests.
 
-- **schema.sql**: Defines the database tables and structure (users, messages, and comments).
+- **schema.sql**: Defines the database tables and structure (users and comments).
 
 - **init_db.py**: Script that initializes the database with the schema and adds sample users and comments.
 
