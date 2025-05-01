@@ -174,6 +174,34 @@ The backend provides these API endpoints:
 - **DELETE /api/comments/:comment_id** - Deletes a specific comment
   - Returns: Success message with the deleted comment ID
 
+## Testing Backend-Frontend Connection
+
+To test if your frontend can communicate with the backend, use the browser's developer console (F12) and run:
+
+```javascript
+fetch('http://localhost:5001/api/health')
+  .then(response => response.json())
+  .then(data => {
+    console.log('Connection successful!', data);
+  })
+  .catch(error => {
+    console.error('Connection failed:', error);
+  });
+```
+
+To test the comments API specifically:
+
+```javascript
+fetch('http://localhost:5001/api/posts/1/comments')
+  .then(response => response.json())
+  .then(data => {
+    console.log('Comments for post #1:', data);
+  })
+  .catch(error => {
+    console.error('Failed to fetch comments:', error);
+  });
+```
+
 ## Future Enhancements
 
 To fully implement the blog functionality, consider adding these API endpoints:
@@ -194,6 +222,7 @@ The connection between frontend and backend is enabled by CORS (Cross-Origin Res
 ## Troubleshooting
 
 - If port 5000 is in use (common on macOS), the app uses port 5001 instead
-- Check browser console (F12) for any network errors
-- Make sure both servers (frontend and backend) are running
-- If you see CORS errors, verify that Flask-CORS is installed and configured properly 
+- Check browser console (F12) for any network errors and API responses
+- Make sure both servers (frontend and backend) are running simultaneously
+- If you see CORS errors, verify that Flask-CORS is installed and configured properly
+- For database issues, you can reset the database by running `init_db.py` 

@@ -12,7 +12,7 @@ with app.app_context():
     db.execute('INSERT OR IGNORE INTO users (username, email) VALUES (?, ?)', ('user3', 'user3@example.com'))
     
     # Insert sample comments for different posts
-    db.execute('INSERT INTO comments (post_id, content) VALUES (?, ?)', (1, 'Great introduction to Svelte!',))
+    db.execute('INSERT INTO comments (post_id, content) VALUES (?, ?)', (1, 'Feel free to leave your comments here!',))
     db.execute('INSERT INTO comments (post_id, content) VALUES (?, ?)', (1, 'I found this very helpful for getting started.',))
     db.execute('INSERT INTO comments (post_id, content) VALUES (?, ?)', (2, 'The component explanation was exactly what I needed.',))
     db.execute('INSERT INTO comments (post_id, content) VALUES (?, ?)', (3, 'Looking forward to more posts on routing.',))
