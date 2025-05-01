@@ -27,20 +27,6 @@
     // Fetch blog posts when component mounts
     onMount(async () => {
         try {
-            // Try to fetch from backend API - this will only work if the /api/posts endpoint is implemented
-            try {
-                const response = await fetch(`${API_URL}/api/sample`);
-                if (response.ok) {
-                    const data = await response.json();
-                    if (data && data.posts) {
-                        posts = data.posts;
-                        return; // Exit early if we successfully get posts
-                    }
-                }
-            } catch (apiErr) {
-                console.log('API endpoint not available, using sample data', apiErr);
-            }
-            
             // Fallback to sample data if the API call fails
             // Simulate posts from database
             posts = [
