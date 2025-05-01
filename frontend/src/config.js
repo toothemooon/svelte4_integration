@@ -3,9 +3,12 @@
  */
 
 // Set the API URL based on the environment
-// In production (Vercel), use the Azure backend URL
+// In production (determined by checking the URL), use the Azure backend URL
 // In development, use the local backend URL
-export const API_URL = process.env.NODE_ENV === 'production'
+const isProduction = window.location.hostname !== 'localhost' && 
+                    window.location.hostname !== '127.0.0.1';
+
+export const API_URL = isProduction
   ? 'https://sarada-hbegajbsfxekdyex.canadacentral-01.azurewebsites.net'
   : 'http://localhost:5001';
 
