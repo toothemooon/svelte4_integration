@@ -1,83 +1,45 @@
 name: Deploy Flask Backend to Azure Web App
 
-env:
-  AZURE_WEBAPP_NAME: sarada  # Your Azure Web App name
-  PYTHON_VERSION: '3.10'     # Changed to more stable version
-
 on:
-  push:
-    branches: [ "main" ]
-    paths:
-      - 'backend/**'  # Only trigger when backend files change
-  workflow_dispatch:  # Allow manual triggering too
-
-permissions:
-  contents: read
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-      - name: Set up Python version
-        uses: actions/setup-python@v3.0.0
+      - name: Set up Python
+        uses: actions/setup-python@v4
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
-          cache: 'pip'  # Keeping cache as 3.10 should work with it
-
-      - name: Create and start virtual environment
-        run: |
-          python -m venv venv
-          source venv/bin/activate
+          python-version: '3.10'
 
       - name: Install dependencies
         run: |
-          cd backend
+          python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install gunicorn  # Add gunicorn for production
 
-      - name: Prepare deployment package
-        run: |
-          # Create deployment directory
-          mkdir -p deploy
+      - name: Archive app for deployment
+        run: zip -r app.zip . -x '*.git*'
 
-          # Copy backend files to deployment directory
-          cp -r backend/* deploy/
-          
-          # Create startup file
-          cat > deploy/startup.txt << EOF
-          gunicorn --bind=0.0.0.0 --workers=2 app:app
-          EOF
-
-      - name: Upload artifact for deployment jobs
-        uses: actions/upload-artifact@v4
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
         with:
-          name: python-app
-          path: |
-            deploy/
-            !deploy/__pycache__/
+          name: flask-app
+          path: app.zip
 
   deploy:
-    permissions:
-      contents: none
     runs-on: ubuntu-latest
     needs: build
-    environment:
-      name: 'Production'
-      url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
-
     steps:
-      - name: Download artifact from build job
-        uses: actions/download-artifact@v4
+      - name: Download artifact
+        uses: actions/download-artifact@v3
         with:
-          name: python-app
-          path: .
+          name: flask-app
 
-      - name: 'Deploy to Azure Web App'
-        id: deploy-to-webapp
+      - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v2
         with:
-          app-name: ${{ env.AZURE_WEBAPP_NAME }}
-          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          app-name: <YOUR_AZURE_APP_NAME>
+          publish-profile: ${{ secrets.AZURE_WEB_
