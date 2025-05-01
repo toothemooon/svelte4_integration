@@ -1,15 +1,15 @@
 name: Deploy Flask Backend to Azure Web App
 
 env:
-  AZURE_WEBAPP_NAME: sarada
-  PYTHON_VERSION: '3.9'  # Stable Python version
+  AZURE_WEBAPP_NAME: sarada  # Your Azure Web App name
+  PYTHON_VERSION: '3.13'     # Keeping this if it's what Azure uses
 
 on:
   push:
     branches: [ "main" ]
     paths:
-      - 'backend/**'
-  workflow_dispatch:
+      - 'backend/**'  # Only trigger when backend files change
+  workflow_dispatch:  # Allow manual triggering too
 
 permissions:
   contents: read
@@ -25,14 +25,7 @@ jobs:
         uses: actions/setup-python@v3.0.0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: Cache pip dependencies
-        uses: actions/cache@v3
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
+          # Removed cache: 'pip' to avoid the 422 error
 
       - name: Create and start virtual environment
         run: |
@@ -43,12 +36,17 @@ jobs:
         run: |
           cd backend
           pip install -r requirements.txt
-          pip install gunicorn
+          pip install gunicorn  # Add gunicorn for production
 
       - name: Prepare deployment package
         run: |
+          # Create deployment directory
           mkdir -p deploy
+
+          # Copy backend files to deployment directory
           cp -r backend/* deploy/
+          
+          # Create startup file
           cat > deploy/startup.txt << EOF
           gunicorn --bind=0.0.0.0 --workers=2 app:app
           EOF
@@ -77,7 +75,7 @@ jobs:
           name: python-app
           path: .
 
-      - name: Deploy to Azure Web App
+      - name: 'Deploy to Azure Web App'
         id: deploy-to-webapp
         uses: azure/webapps-deploy@v2
         with:
