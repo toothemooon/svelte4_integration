@@ -1,5 +1,9 @@
 from app import app, init_db, get_db
 
+print("⚠️ WARNING: This script will DROP all tables and recreate the database!")
+print("Any existing comments or user data will be LOST!")
+print("For a persistent database approach, use test_vercel_azure/init_db_persistent.py instead.\n")
+
 with app.app_context():
     # Initialize the database schema
     init_db()
