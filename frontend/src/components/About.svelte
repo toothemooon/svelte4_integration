@@ -8,7 +8,7 @@
 <div class="page">
     <h1>About Me</h1>
     
-    <p>This is my hobby blog site :)</p>
+    <p>This is my hobby blog site, testing cloud deployment.</p>
     
     <h2>My Goal</h2>
     <p>Continue to learn and build my blog web app.</p>
