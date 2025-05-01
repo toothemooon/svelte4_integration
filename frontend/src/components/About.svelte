@@ -8,10 +8,10 @@
 <div class="page">
     <h1>About Me</h1>
     
-    <p>I'm a promptgrammer getting started with Svelte:)</p>
+    <p>This is my hobby blog site :)</p>
     
     <h2>My Goal</h2>
-    <p>Continue to learn Svelte and build a simple blog app.</p>
+    <p>Continue to learn and build my blog web app.</p>
     
     <h2>Contact</h2>
     <p>You can reach me at hsc110110123@outlook.com</p>

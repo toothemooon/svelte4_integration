@@ -36,21 +36,21 @@
             posts = [
                 {
                     id: 1,
-                    title: "Getting Started with Svelte",
-                    excerpt: "Learn the basics of Svelte and how to build your first app.",
-                    date: "2023-08-15"
+                    title: "Getting Started with My First Blog",
+                    excerpt: "Learning the basics of how to build my blog web app.",
+                    date: "2025-05-01"
                 },
                 {
                     id: 2,
-                    title: "Working with Svelte Components",
-                    excerpt: "Understand how to create reusable components in Svelte.",
-                    date: "2023-08-25"
+                    title: "Structuring of Each Component of My Blog",
+                    excerpt: "Understand how to set up reusable components.",
+                    date: "2025-05-06"
                 },
                 {
                     id: 3,
-                    title: "Client-Side Routing in Svelte",
-                    excerpt: "Implement SPA routing in your Svelte applications.",
-                    date: "2023-09-05"
+                    title: "Sharing Experiences of Cloud Solutions Deployment",
+                    excerpt: "Implement a cloud-based blog web application.",
+                    date: "2025-05-07"
                 }
             ];
         } catch (err) {
