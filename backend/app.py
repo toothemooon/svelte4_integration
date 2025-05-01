@@ -13,7 +13,9 @@ import os                           # For environment variables
 
 # Create a new Flask application
 app = Flask(__name__)
-CORS(app)  # Enable CORS for all routes, allowing the frontend to make API calls to this backend
+# Configure CORS with explicit settings to ensure all operations work properly
+CORS(app, resources={r"/api/*": {"origins": "*", "methods": ["GET", "POST", "DELETE", "OPTIONS"], 
+                               "allow_headers": ["Content-Type", "Authorization"]}})
 
 # Database configuration
 # Use a path that works in both local development and Azure deployment

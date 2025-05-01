@@ -46,7 +46,8 @@
             const response = await fetch(`${API_URL}/api/posts/${postId}/comments`, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
                 },
                 body: JSON.stringify({ content: newComment })
             });
@@ -66,10 +67,10 @@
             
         } catch (err) {
             console.error('Error adding comment:', err);
-            alert('Failed to add comment. ' + err.message);
             
             // For demo/testing - add mock comment when backend unavailable
             if (window.location.hostname !== 'localhost') {
+                console.log('Using fallback behavior for adding comment');
                 const mockComment = {
                     id: Math.floor(Math.random() * 1000) + 3,
                     post_id: postId,
@@ -78,6 +79,12 @@
                 };
                 comments = [mockComment, ...comments];
                 newComment = '';
+                
+                // Show a toast or notification instead of an alert
+                const warningMsg = 'Comment added locally only. Backend connection failed.';
+                console.warn(warningMsg);
+            } else {
+                alert('Failed to add comment. ' + err.message);
             }
         }
     }
@@ -88,7 +95,10 @@
         
         try {
             const response = await fetch(`${API_URL}/api/comments/${id}`, {
-                method: 'DELETE'
+                method: 'DELETE',
+                headers: {
+                    'Accept': 'application/json'
+                }
             });
             
             if (!response.ok) {
@@ -101,11 +111,17 @@
             
         } catch (err) {
             console.error('Error deleting comment:', err);
-            alert('Failed to delete comment. ' + err.message);
             
             // For demo/testing - remove comment when backend unavailable
             if (window.location.hostname !== 'localhost') {
+                console.log('Using fallback behavior for deleting comment');
                 comments = comments.filter(comment => comment.id !== id);
+                
+                // Show a toast or notification instead of an alert
+                const warningMsg = 'Comment removed locally only. Backend connection failed.';
+                console.warn(warningMsg);
+            } else {
+                alert('Failed to delete comment. ' + err.message);
             }
         }
     }
