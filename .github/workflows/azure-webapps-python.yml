@@ -2,7 +2,7 @@ name: Deploy Flask Backend to Azure Web App
 
 env:
   AZURE_WEBAPP_NAME: sarada
-  PYTHON_VERSION: '3.13.3'  # Stable Python version
+  PYTHON_VERSION: '3.9'  # Stable Python version
 
 on:
   push:
