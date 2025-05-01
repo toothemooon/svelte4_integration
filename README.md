@@ -90,34 +90,39 @@ The frontend will be available at http://localhost:8080
 
 ## Deploying to Azure App Service
 
-The backend includes deployment scripts to easily deploy to Microsoft Azure App Service.
+The backend includes a deployment script (`backend/deploy/deploy-to-azure.sh`) to easily deploy to Microsoft Azure App Service. This script includes fixes to ensure database persistence, resolving issues where comments might disappear after backend restarts.
 
 ### Prerequisites
 - Azure account with an active subscription
 - Azure CLI installed (`az` command available)
-- An existing Azure App Service (Python runtime)
+- An existing Azure App Service (Python runtime, Linux recommended)
 
 ### Deployment Steps
 
 1. Make sure you're logged in to Azure CLI:
-```
+```bash
 az login
 ```
 
 2. Run the deployment script from the project root:
-```
-./backend/deploy/deploy-to-azure.sh
+```bash
+bash ./backend/deploy/deploy-to-azure.sh
 ```
 
 The script will:
-- Package your backend application
-- Deploy it to your Azure App Service
-- Configure the startup command
+- Package your backend application, including necessary configuration files.
+- Ensure dependencies are installed correctly on Azure.
+- Set up a persistent location for the SQLite database (`/home/site/wwwroot/data`).
+- Deploy the package to your Azure App Service.
+- Configure the correct startup command (`startup.sh`).
+
+**Important:** The first deployment will initialize the database. Subsequent deployments using this script will *preserve* the existing database, keeping user comments intact.
 
 3. Your backend API will be available at:
 ```
 https://YOUR-APP-NAME.azurewebsites.net
 ```
+*(Replace `YOUR-APP-NAME` with your actual Azure App Service name, e.g., `https://sarada.azurewebsites.net`)*
 
 ### Testing Deployment
 
@@ -300,8 +305,11 @@ The connection between frontend and backend is enabled by CORS (Cross-Origin Res
 - Check browser console (F12) for any network errors and API responses
 - Make sure both servers (frontend and backend) are running simultaneously
 - If you see CORS errors, verify that Flask-CORS is installed and configured properly 
-- For database issues, you can reset the database by running `init_db.py`
-- For Azure deployment issues, check the logs with `az webapp log tail --resource-group YOUR_RESOURCE_GROUP --name YOUR_APP_NAME`
+- For database issues, you can reset the database by deleting the `database.db` file within the `/home/site/wwwroot/data` directory on your Azure App Service (using Kudu tools or SSH) and redeploying. **Warning:** This will delete all existing comments.
+- For Azure deployment issues, check the logs:
+  ```bash
+  az webapp log tail --resource-group YOUR_RESOURCE_GROUP --name YOUR_APP_NAME
+  ```
 - If the frontend displays a blank page, check your browser console for JavaScript errors
 - When running the frontend locally, ensure you're accessing it from the exact URL shown in the terminal (typically http://localhost:8080)
 - Remember that you must run terminal commands from the correct directory:
