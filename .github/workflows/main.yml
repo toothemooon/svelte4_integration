@@ -2,7 +2,7 @@ name: Deploy Flask Backend to Azure
 
 env:
   AZURE_WEBAPP_NAME: sarada
-  PYTHON_VERSION: '3.13'  # Match Azure's Python version
+  PYTHON_VERSION: '3.13' # Match Azure's Python version
 
 on:
   push:
@@ -18,7 +18,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - name: Set up Python
+      - name: Set up Python (Only for workflow tools, not runtime)
         uses: actions/setup-python@v4
         with:
           python-version: ${{ env.PYTHON_VERSION }}
@@ -26,9 +26,11 @@ jobs:
       - name: Prepare deployment package
         run: |
           mkdir -p deploy_package
+          # Copy all backend contents
           cp -r backend/* deploy_package/
           
-          # Create requirements.txt with explicit dependencies including compatible Werkzeug
+          # OVERWRITE requirements.txt in the package with the correct pinned versions
+          # This is the file Azure's build system (Oryx) will use
           cat > deploy_package/requirements.txt << 'EOF'
           flask==2.0.1
           flask_cors==3.0.10
@@ -36,25 +38,25 @@ jobs:
           Werkzeug==2.2.3  # Pin Werkzeug to a compatible version
           EOF
           
-          # Create startup.sh script
+          # Create SIMPLIFIED startup.sh script (NO pip install here)
           cat > deploy_package/startup.sh << 'EOF'
           #!/bin/bash
           
-          # Install dependencies from updated requirements.txt
-          pip install -r requirements.txt
-          
           # Initialize the database if needed
           # Check if database file exists before initializing
-          if [ ! -f "/home/site/wwwroot/database.db" ]; then
-              echo "Database not found, initializing..."
+          # Assuming database.db is deployed within wwwroot
+          DATABASE_FILE="/home/site/wwwroot/database.db"
+          if [ ! -f "$DATABASE_FILE" ]; then
+              echo "Database not found at $DATABASE_FILE, initializing..."
               python init_db.py
           else
-              echo "Database already exists."
+              echo "Database already exists at $DATABASE_FILE."
           fi
           
           # Start the app with gunicorn
+          # Azure automatically provides the port via $PORT environment variable
           echo "Starting Gunicorn..."
-          gunicorn --bind=0.0.0.0:8000 --timeout 600 app:app
+          gunicorn --bind=0.0.0.0:$PORT --timeout 600 app:app
           EOF
           
           chmod +x deploy_package/startup.sh
