@@ -1,8 +1,8 @@
 name: Deploy Flask Backend to Azure
 
 env:
-  AZURE_WEBAPP_NAME: sarada  # Your Azure Web App name
-  PYTHON_VERSION: '3.10'     # Using stable Python version
+  AZURE_WEBAPP_NAME: sarada
+  PYTHON_VERSION: '3.13'  # Match Azure's Python version (3.13)
 
 on:
   push:
@@ -22,50 +22,34 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-          # No caching to avoid 422 errors
-      
-      - name: Install dependencies
-        run: |
-          cd backend
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install gunicorn
       
       - name: Prepare deployment package
         run: |
           mkdir -p deploy_package
           cp -r backend/* deploy_package/
           
-          # Create web.config
-          cat > deploy_package/web.config << 'EOF'
-          <?xml version="1.0" encoding="utf-8"?>
-          <configuration>
-            <system.webServer>
-              <handlers>
-                <add name="PythonHandler" path="*" verb="*" modules="httpPlatformHandler" resourceType="Unspecified"/>
-              </handlers>
-              <httpPlatform processPath="%home%\python\3.10\python.exe"
-                            arguments="%home%\site\wwwroot\run.py"
-                            stdoutLogEnabled="true"
-                            stdoutLogFile="%home%\LogFiles\python.log"
-                            startupTimeLimit="60">
-                <environmentVariables>
-                  <environmentVariable name="PYTHONPATH" value="%home%\site\wwwroot"/>
-                </environmentVariables>
-              </httpPlatform>
-            </system.webServer>
-          </configuration>
+          # Add requirements.txt with explicit dependencies
+          cat > deploy_package/requirements.txt << 'EOF'
+          flask==2.0.1
+          flask_cors==3.0.10
+          gunicorn==20.1.0
           EOF
           
-          # Create run.py
-          cat > deploy_package/run.py << 'EOF'
-          from subprocess import Popen
-          import os
+          # Create startup.sh script
+          cat > deploy_package/startup.sh << 'EOF'
+          #!/bin/bash
           
-          # Start gunicorn
-          cmd = 'gunicorn --bind=0.0.0.0 --timeout 600 app:app'
-          Popen(cmd, shell=True)
+          # Install dependencies
+          pip install -r requirements.txt
+          
+          # Initialize the database if needed
+          python init_db.py
+          
+          # Start the app with gunicorn
+          gunicorn --bind=0.0.0.0:8000 --timeout 600 app:app
           EOF
+          
+          chmod +x deploy_package/startup.sh
       
       - name: Deploy to Azure
         uses: azure/webapps-deploy@v2
