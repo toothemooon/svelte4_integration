@@ -2,7 +2,7 @@ name: Deploy Flask Backend to Azure
 
 env:
   AZURE_WEBAPP_NAME: sarada
-  PYTHON_VERSION: '3.13'  # Match Azure's Python version (3.13)
+  PYTHON_VERSION: '3.13'  # Match Azure's Python version
 
 on:
   push:
@@ -28,24 +28,32 @@ jobs:
           mkdir -p deploy_package
           cp -r backend/* deploy_package/
           
-          # Add requirements.txt with explicit dependencies
+          # Create requirements.txt with explicit dependencies including compatible Werkzeug
           cat > deploy_package/requirements.txt << 'EOF'
           flask==2.0.1
           flask_cors==3.0.10
           gunicorn==20.1.0
+          Werkzeug==2.2.3  # Pin Werkzeug to a compatible version
           EOF
           
           # Create startup.sh script
           cat > deploy_package/startup.sh << 'EOF'
           #!/bin/bash
           
-          # Install dependencies
+          # Install dependencies from updated requirements.txt
           pip install -r requirements.txt
           
           # Initialize the database if needed
-          python init_db.py
+          # Check if database file exists before initializing
+          if [ ! -f "/home/site/wwwroot/database.db" ]; then
+              echo "Database not found, initializing..."
+              python init_db.py
+          else
+              echo "Database already exists."
+          fi
           
           # Start the app with gunicorn
+          echo "Starting Gunicorn..."
           gunicorn --bind=0.0.0.0:8000 --timeout 600 app:app
           EOF
           
