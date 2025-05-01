@@ -2,7 +2,7 @@ name: Deploy Flask Backend to Azure
 
 env:
   AZURE_WEBAPP_NAME: sarada
-  PYTHON_VERSION: '3.13' # Match Azure's Python version
+  PYTHON_VERSION: '3.13' # Using the version from Azure Portal
 
 on:
   push:
@@ -18,33 +18,47 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - name: Set up Python (Only for workflow tools, not runtime)
-        uses: actions/setup-python@v4
+      - name: Set up Python
+        uses: actions/setup-python@v4 # Use a recent version
         with:
           python-version: ${{ env.PYTHON_VERSION }}
+          # cache: 'pip' # Keep cache disabled for now to avoid 422 errors
+      
+      - name: Install dependencies
+        run: |
+          cd backend  # <<< FIX: Change directory to backend first
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt # Now it finds the file
+          pip install gunicorn            # Install gunicorn too
+        working-directory: ${{ github.workspace }} # Ensure subsequent steps run from the root
       
       - name: Prepare deployment package
         run: |
           mkdir -p deploy_package
-          # Copy all backend contents
+          # Copy backend contents INCLUDING installed dependencies if using a venv,
+          # or rely on Azure finding them from requirements.txt during its build.
+          # For simplicity with zip deploy, let's assume Azure will handle install based on requirements.
           cp -r backend/* deploy_package/
           
-          # OVERWRITE requirements.txt in the package with the correct pinned versions
-          # This is the file Azure's build system (Oryx) will use
+          # Ensure the CORRECT requirements.txt (with pinned Werkzeug) is in the package
+          # This is redundant if backend/requirements.txt is already correct, but safe
           cat > deploy_package/requirements.txt << 'EOF'
           flask==2.0.1
           flask_cors==3.0.10
           gunicorn==20.1.0
-          Werkzeug==2.2.3  # Pin Werkzeug to a compatible version
+          Werkzeug==2.2.3
           EOF
-          
-          # Create SIMPLIFIED startup.sh script (NO pip install here)
+
+          # Create startup.sh script
           cat > deploy_package/startup.sh << 'EOF'
           #!/bin/bash
           
+          # Azure's build system (Oryx) should have already installed dependencies
+          # based on requirements.txt if SCM_DO_BUILD_DURING_DEPLOYMENT is true (default).
+          # If not, uncomment the pip install line below.
+          # pip install -r requirements.txt
+          
           # Initialize the database if needed
-          # Check if database file exists before initializing
-          # Assuming database.db is deployed within wwwroot
           DATABASE_FILE="/home/site/wwwroot/database.db"
           if [ ! -f "$DATABASE_FILE" ]; then
               echo "Database not found at $DATABASE_FILE, initializing..."
@@ -53,8 +67,7 @@ jobs:
               echo "Database already exists at $DATABASE_FILE."
           fi
           
-          # Start the app with gunicorn
-          # Azure automatically provides the port via $PORT environment variable
+          # Start the app with gunicorn using Azure's PORT variable
           echo "Starting Gunicorn..."
           gunicorn --bind=0.0.0.0:$PORT --timeout 600 app:app
           EOF
