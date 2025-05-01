@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Backend Connection Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            line-height: 1.6;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1 {
+            color: #ff3e00;
+        }
+        .card {
+            background-color: #f9f9f9;
+            border-radius: 8px;
+            padding: 1em;
+            margin: 1em 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .instructions {
+            background-color: #fffdf7;
+            border-left: 4px solid #ff3e00;
+            padding: 1em;
+            margin: 1em 0;
+        }
+        code {
+            background-color: #f0f0f0;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <h1>Backend Connection Test</h1>
+    
+    <div class="card">
+        <h2>What This Test Does</h2>
+        <p>This page tests the connection between this frontend and your local backend running at <code>http://localhost:5001</code>.</p>
+        <p>Open your browser's developer console (F12 or Ctrl+Shift+J or Cmd+Option+J) to see the test results.</p>
+    </div>
+    
+    <div class="instructions">
+        <h2>Expected Results</h2>
+        <p><strong>If viewing on your local development server:</strong></p>
+        <ul>
+            <li>Success message if your local backend is running</li>
+            <li>Error message if your local backend is not running</li>
+        </ul>
+        
+        <p><strong>If viewing on Vercel (sarada.online):</strong></p>
+        <ul>
+            <li>Error message is expected and normal</li>
+            <li>Vercel-hosted frontends cannot connect directly to localhost</li>
+        </ul>
+    </div>
+    
+    <div class="card">
+        <h2>Solutions for Vercel Production</h2>
+        <p>To connect your Vercel frontend to a backend:</p>
+        <ol>
+            <li>Deploy your backend to a cloud provider (Render, Heroku, etc.)</li>
+            <li>Update your frontend code to use the deployed backend URL</li>
+            <li>Use environment variables to switch between development and production URLs</li>
+        </ol>
+    </div>
+    
+    <script>
+        // Test script to check connection between Vercel frontend and local backend
+        async function testBackendConnection() {
+          console.log('Starting backend connection test...');
+          
+          try {
+            console.log('Attempting to connect to local backend at http://localhost:5001/api/health');
+            const startTime = Date.now();
+            const response = await fetch('http://localhost:5001/api/health');
+            const endTime = Date.now();
+            
+            if (response.ok) {
+              const data = await response.json();
+              console.log('✅ Successfully connected to backend!');
+              console.log('Response data:', data);
+              console.log(`Request took ${endTime - startTime}ms`);
+            } else {
+              console.error('❌ Backend returned an error status:', response.status);
+            }
+          } catch (err) {
+            console.error('❌ Failed to connect to backend:', err.message);
+            console.log('This error is expected when Vercel frontend tries to connect to localhost.');
+            console.log('CORS error or network error are typical in this scenario.');
+          }
+          
+          console.log('\nConclusion:');
+          console.log('- If you\'re seeing this in your browser console on your local development server (localhost:8080),');
+          console.log('  a successful connection means your local frontend can talk to your local backend.');
+          console.log('- If you\'re seeing this in your browser console on your Vercel deployment (sarada.online),');
+          console.log('  a connection error is expected and normal - Vercel cannot connect to your local machine.');
+        }
+
+        // Run the test
+        testBackendConnection();
+    </script>
+</body>
+</html> 
