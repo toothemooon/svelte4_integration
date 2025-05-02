@@ -1,11 +1,3 @@
-DROP TABLE IF EXISTS users;
-
-CREATE TABLE users (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  username TEXT UNIQUE NOT NULL,
-  email TEXT UNIQUE NOT NULL
-);
-
 DROP TABLE IF EXISTS comments;
 
 CREATE TABLE comments (
@@ -13,4 +5,7 @@ CREATE TABLE comments (
   post_id INTEGER NOT NULL,
   content TEXT NOT NULL,
   timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-); 
+);
+
+CREATE INDEX idx_comments_post_id ON comments(post_id);
+CREATE INDEX idx_comments_timestamp ON comments(timestamp); 

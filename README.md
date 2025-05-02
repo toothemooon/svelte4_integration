@@ -188,16 +188,6 @@ This configuration is managed in `frontend/src/config.js` and automatically dete
 
 The backend is configured with proper CORS headers to allow the frontend to make cross-origin requests for all HTTP methods (GET, POST, DELETE) regardless of where it's hosted.
 
-### Fallback Behavior
-
-The application includes fallback mechanisms to handle cases where the backend might be unavailable:
-
-- If comment retrieval fails, the UI will show an appropriate error message
-- When adding or deleting comments, if the backend is unavailable, the frontend will simulate the operations locally
-- The home page shows hardcoded sample posts if the backend post API is not available
-
-These fallbacks provide a more resilient user experience when working with a distributed architecture.
-
 ## Understanding the Files
 
 ### Frontend (Svelte)
@@ -265,26 +255,6 @@ The backend provides these API endpoints:
 - **DELETE /api/comments/:comment_id** - Deletes a specific comment
   - Returns: Success message with the deleted comment ID
 
-## Testing Backend-Frontend Connection (Manual)
-
-To manually test if your frontend can communicate with the backend from your browser's developer console (F12):
-
-Test the health check:
-```javascript
-fetch('http://localhost:5001/api/health') // Replace with your Azure URL if testing deployed version
-  .then(response => response.json())
-  .then(data => console.log('Connection successful!', data))
-  .catch(error => console.error('Connection failed:', error));
-```
-
-Test the comments API (for post ID 1):
-```javascript
-fetch('http://localhost:5001/api/posts/1/comments') // Replace URL if needed
-  .then(response => response.json())
-  .then(data => console.log('Comments for post #1:', data))
-  .catch(error => console.error('Failed to fetch comments:', error));
-```
-
 ## Future Enhancements
 
 To fully implement the blog functionality, consider adding these API endpoints:
@@ -304,17 +274,10 @@ The connection between frontend and backend is enabled by CORS (Cross-Origin Res
 
 ## Troubleshooting
 
-- If port 5000 is in use (common on macOS), the app uses port 5001 instead
-- Check browser console (F12) for any network errors and API responses
-- Make sure both servers (frontend and backend) are running simultaneously
 - If you see CORS errors, verify that Flask-CORS is installed and configured properly 
 - For database issues, you can reset the database by deleting the `database.db` file within the `/home/site/wwwroot/data` directory on your Azure App Service (using Kudu tools or SSH) and redeploying. **Warning:** This will delete all existing comments.
 - For Azure deployment issues, check the logs:
   ```bash
   az webapp log tail --resource-group YOUR_RESOURCE_GROUP --name YOUR_APP_NAME
   ```
-- If the frontend displays a blank page, check your browser console for JavaScript errors
 - When running the frontend locally, ensure you're accessing it from the exact URL shown in the terminal (typically http://localhost:8080)
-- Remember that you must run terminal commands from the correct directory:
-  - For frontend commands: `cd frontend && npm run dev`
-  - For backend commands: `cd backend && python app.py`

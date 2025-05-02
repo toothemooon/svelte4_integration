@@ -14,6 +14,7 @@
     // Function to fetch comments for a specific post
     async function fetchComments() {
         loading = true;
+        error = null; // Reset error on fetch
         try {
             const response = await fetch(`${API_URL}/api/posts/${postId}/comments`);
             if (!response.ok) {
@@ -23,16 +24,7 @@
         } catch (err) {
             console.error('Error fetching comments:', err);
             error = err.message;
-            
-            // Fallback for demo/testing when backend is not available
-            if (window.location.hostname !== 'localhost') {
-                console.log('Using mock comment data for demo');
-                comments = [
-                    { id: 1, post_id: postId, content: 'Great post! Thanks for sharing.', timestamp: '2023-08-10T12:00:00' },
-                    { id: 2, post_id: postId, content: 'I have a question about this topic...', timestamp: '2023-08-12T15:30:00' }
-                ];
-                error = null;
-            }
+            // Removed fallback logic - just show the error
         } finally {
             loading = false;
         }
@@ -67,25 +59,9 @@
             
         } catch (err) {
             console.error('Error adding comment:', err);
-            
-            // For demo/testing - add mock comment when backend unavailable
-            if (window.location.hostname !== 'localhost') {
-                console.log('Using fallback behavior for adding comment');
-                const mockComment = {
-                    id: Math.floor(Math.random() * 1000) + 3,
-                    post_id: postId,
-                    content: newComment,
-                    timestamp: new Date().toISOString()
-                };
-                comments = [mockComment, ...comments];
-                newComment = '';
-                
-                // Show a toast or notification instead of an alert
-                const warningMsg = 'Comment added locally only. Backend connection failed.';
-                console.warn(warningMsg);
-            } else {
-                alert('Failed to add comment. ' + err.message);
-            }
+            // Removed fallback logic
+            // Simply alert the user or update an error state
+            alert('Failed to add comment. Please check connection and try again. ' + err.message);
         }
     }
     
@@ -111,18 +87,9 @@
             
         } catch (err) {
             console.error('Error deleting comment:', err);
-            
-            // For demo/testing - remove comment when backend unavailable
-            if (window.location.hostname !== 'localhost') {
-                console.log('Using fallback behavior for deleting comment');
-                comments = comments.filter(comment => comment.id !== id);
-                
-                // Show a toast or notification instead of an alert
-                const warningMsg = 'Comment removed locally only. Backend connection failed.';
-                console.warn(warningMsg);
-            } else {
-                alert('Failed to delete comment. ' + err.message);
-            }
+            // Removed fallback logic
+            // Simply alert the user or update an error state
+            alert('Failed to delete comment. Please check connection and try again. ' + err.message);
         }
     }
     

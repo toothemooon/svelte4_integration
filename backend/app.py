@@ -93,15 +93,15 @@ This endpoint returns a JSON array containing all users in the database.
 Returns:
     flask.Response: JSON response with user data
 '''
-@app.route('/api/users', methods=['GET'])
-def get_users():
-    db = get_db()  # Get database connection
-    cursor = db.execute('SELECT * FROM users')  # Query all users
-    
-    # Convert database rows to dictionaries for JSON serialization
-    users = [dict(id=row[0], username=row[1], email=row[2]) for row in cursor.fetchall()]
-    
-    return jsonify(users)  # Return as JSON response
+# @app.route('/api/users', methods=['GET']) # Route removed as users table is not used by frontend
+# def get_users():
+#     db = get_db()  # Get database connection
+#     cursor = db.execute('SELECT * FROM users')  # Query all users
+#     
+#     # Convert database rows to dictionaries for JSON serialization
+#     users = [dict(id=row[0], username=row[1], email=row[2]) for row in cursor.fetchall()]
+#     
+#     return jsonify(users)  # Return as JSON response
 
 '''
 Health check endpoint to verify the backend is running.
