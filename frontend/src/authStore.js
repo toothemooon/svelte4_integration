@@ -4,10 +4,11 @@ import { API_URL } from './config.js';
 
 const TOKEN_KEY = 'jwt_token'; // Key for localStorage
 
-// State: isLoggedIn (boolean), token (string), errorMsg (string)
+// State: isLoggedIn (boolean), token (string), errorMsg (string), currentUserId (number)
 export const isLoggedIn = writable(false);
 export const token = writable(null);
 export const errorMsg = writable(null); // To display auth errors
+export const currentUserId = writable(null); // Store the current user's ID
 
 // Helper function to clear errors
 export function clearError() {
@@ -21,6 +22,13 @@ export function initializeAuth() {
         // Set token and logged in state
         token.set(storedToken);
         isLoggedIn.set(true);
+        // Decode token to get user ID
+        try {
+            const payload = JSON.parse(atob(storedToken.split('.')[1]));
+            currentUserId.set(payload.user_id);
+        } catch (e) {
+            console.error('Error decoding token:', e);
+        }
         console.log('Auth initialized from stored token.');
     } else {
         console.log('No stored token found.');
@@ -28,6 +36,7 @@ export function initializeAuth() {
 }
 
 // Login function
+// Update login function
 export async function login(username, password) {
     clearError();
     try {
@@ -37,26 +46,25 @@ export async function login(username, password) {
             body: JSON.stringify({ username, password })
         });
 
-        const data = await response.json();
-
         if (!response.ok) {
-            throw new Error(data.message || `Login failed (Status: ${response.status})`);
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
         }
 
-        if (data.token) {
-            console.log('Received token:', data.token);
-            token.set(data.token);
-            isLoggedIn.set(true);
-            localStorage.setItem(TOKEN_KEY, data.token);
-            console.log('Login successful, token stored.');
-            push('/');
-        } else {
-            throw new Error('Login failed: No token received.');
+        const data = await response.json();
+        
+        if (!data.token) {
+            throw new Error('No token received in response');
         }
 
+        token.set(data.token);
+        isLoggedIn.set(true);
+        localStorage.setItem(TOKEN_KEY, data.token);
+        push('/');
+        
     } catch (err) {
         console.error('Login error:', err);
-        errorMsg.set(err.message);
+        errorMsg.set(err.message || 'Login failed. Please try again.');
         isLoggedIn.set(false);
         token.set(null);
         localStorage.removeItem(TOKEN_KEY);
@@ -68,6 +76,7 @@ export function logout() {
     clearError();
     token.set(null);
     isLoggedIn.set(false);
+    currentUserId.set(null);
     localStorage.removeItem(TOKEN_KEY);
     console.log('Logged out, token removed.');
     push('/');

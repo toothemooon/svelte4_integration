@@ -6,7 +6,7 @@
     import { push } from 'svelte-spa-router'; // Import push for navigation
     import Comments from './Comments.svelte';
     import { API_URL } from '../config.js'; // Import API_URL
-    import { isLoggedIn, token, userRole } from '../authStore.js'; // Import auth stores
+    import { isLoggedIn, token, currentUserId } from '../authStore.js'; // Import auth stores
     
     // State for the post data
     let post = null;
@@ -146,7 +146,7 @@
                 <a href="/" class="back-button">← Back to posts</a>
                 
                 <!-- Show delete button only for post owner -->
-                {#if $isLoggedIn && post.user_id === currentUserId}
+                {#if $isLoggedIn && post.user_id === $currentUserId}
                     <button 
                         class="delete-button" 
                         on:click={deletePost} 

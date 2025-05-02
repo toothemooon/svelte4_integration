@@ -6,7 +6,8 @@ It sets up a web server with API endpoints that connect to an SQLite database.
 """
 
 from flask import Flask, g, jsonify, request  # Flask web framework, global context, JSON response helper, request parser
-import sqlite3                       # SQLite database library
+import sqlite3
+from queue import Queue                       # SQLite database library
 from flask_cors import CORS          # Cross-Origin Resource Sharing (allows frontend to call backend APIs)
 import datetime                      # For timestamp handling
 import os                           # For environment variables
@@ -42,15 +43,25 @@ ALLOWED_ORIGINS = [
 ]
 
 # Configure CORS more specifically
-CORS(app, resources={r"/api/*": {"origins": ALLOWED_ORIGINS, 
-                               "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"], 
-                               "allow_headers": ["Content-Type", "Authorization"], 
-                               "supports_credentials": True}})
+CORS(app, resources={
+    r"/api/*": {
+        "origins": ALLOWED_ORIGINS,
+        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        "allow_headers": ["Content-Type", "Authorization"],
+        "supports_credentials": True
+    },
+    r"/": {"origins": ALLOWED_ORIGINS}  # Add root endpoint
+})
 
 # Database configuration
 # Use a path that works in both local development and Azure deployment
+# Update the database path handling
 DATABASE_DIR = os.environ.get('DATABASE_DIR', os.path.dirname(os.path.abspath(__file__)))
 DATABASE = os.path.join(DATABASE_DIR, 'database.db')
+
+# Ensure directory exists
+os.makedirs(DATABASE_DIR, exist_ok=True)
+print(f"Database path: {DATABASE}")  # Log the path for debugging
 
 # --- Configuration --- 
 # IMPORTANT: Use environment variables for production secrets!
@@ -66,14 +77,41 @@ of a request).
 Returns:
     sqlite3.Connection: A database connection
 '''
+# Update get_db() function
+# Add to top of app.py
+from sqlite3 import connect
+from queue import Queue
+
+# Connection pool setup
+class SQLiteConnectionPool:
+    def __init__(self, max_connections=5):
+        self.max_connections = max_connections
+        self._connections = Queue(max_connections)
+        for _ in range(max_connections):
+            conn = connect(DATABASE, check_same_thread=False)
+            conn.row_factory = sqlite3.Row
+            self._connections.put(conn)
+
+    def get_connection(self):
+        return self._connections.get()
+
+    def return_connection(self, conn):
+        self._connections.put(conn)
+
+connection_pool = SQLiteConnectionPool()
+
+# Update get_db() function
 def get_db():
-    db = getattr(g, '_database', None)  # Check if connection already exists
-    if db is None:  # If no existing connection
-        # Create a new connection
-        db = g._database = sqlite3.connect(DATABASE)
-        # Configure to return rows that can be accessed by column name
-        db.row_factory = sqlite3.Row
-    return db
+    if 'db' not in g:
+        g.db = connection_pool.get_connection()
+    return g.db
+
+# Update teardown_appcontext
+@app.teardown_appcontext
+def close_connection(exception):
+    db = g.pop('db', None)
+    if db is not None:
+        connection_pool.return_connection(db)
 
 '''
 Automatically close the database connection when the request ends.
@@ -123,43 +161,40 @@ and passes the authenticated user to the decorated function.
 Returns:
     function: The decorated function with user authentication
 '''
+# Update the token_required decorator
 def token_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
         token = None
-        # Check for token in 'Authorization: Bearer <token>' header
         if 'Authorization' in request.headers:
-            auth_header = request.headers['Authorization']
             try:
+                auth_header = request.headers['Authorization']
+                if not auth_header.startswith('Bearer '):
+                    return jsonify({'message': 'Invalid authorization header format'}), 401
                 token = auth_header.split(" ")[1]
-            except IndexError:
-                return jsonify({'message': 'Bearer token malformed'}), 401
+            except Exception as e:
+                return jsonify({'message': f'Authorization header error: {str(e)}'}), 401
 
         if not token:
             return jsonify({'message': 'Token is missing!'}), 401
 
         try:
-            # Decode the token using the secret key
             data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=["HS256"])
-            # Find the user based on the token data (e.g., user_id)
             db = get_db()
             cursor = db.execute('SELECT * FROM users WHERE id = ?', (data['user_id'],))
             current_user = cursor.fetchone()
             if not current_user:
-                 return jsonify({'message': 'User not found'}), 401
+                return jsonify({'message': 'User not found'}), 401
         except jwt.ExpiredSignatureError:
             return jsonify({'message': 'Token has expired!'}), 401
-        except jwt.InvalidTokenError:
-            return jsonify({'message': 'Token is invalid!'}), 401
+        except jwt.InvalidTokenError as e:
+            return jsonify({'message': f'Invalid token: {str(e)}'}), 401
         except Exception as e:
-            print(f"Token validation error: {e}") # Log the error
+            app.logger.error(f'Token validation error: {e}')
             return jsonify({'message': 'Token validation failed'}), 401
 
-        # Pass the current user information to the decorated function
         return f(current_user, *args, **kwargs)
-
     return decorated
-
 # API Routes
 
 '''
@@ -211,63 +246,23 @@ Debug endpoint to check database tables and configuration.
 '''
 @app.route('/api/debug/database', methods=['GET'])
 def debug_database():
-    # Database connection check
+    """Debug endpoint to check database tables and contents."""
     conn = get_db()
-    
     # Check tables
     cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
     tables = [row['name'] for row in cursor.fetchall()]
     
-    # Collect table statistics
-    table_stats = {}
-    for table_name in tables:
-        try:
-            cursor = conn.execute(f"SELECT COUNT(*) as count FROM {table_name}")
-            count = cursor.fetchone()['count']
-            
-            # Get columns for this table
-            cursor = conn.execute(f"PRAGMA table_info({table_name})")
-            columns = [col['name'] for col in cursor.fetchall()]
-            
-            table_stats[table_name] = {
-                'count': count,
-                'columns': columns
-            }
-            
-            # If it's the posts table, get a sample row
-            if table_name == 'posts' and count > 0:
-                cursor = conn.execute(f"SELECT * FROM {table_name} LIMIT 1")
-                sample = dict(cursor.fetchone())
-                table_stats[table_name]['sample'] = {k: str(v) for k, v in sample.items()}
-        except Exception as e:
-            table_stats[table_name] = {'error': str(e)}
+    # Check posts table
+    posts_count = 0
+    if 'posts' in tables:
+        cursor = conn.execute("SELECT COUNT(*) FROM posts")
+        posts_count = cursor.fetchone()[0]
     
-    # Check Flask app configuration and routes
-    routes = []
-    for rule in app.url_map.iter_rules():
-        routes.append({
-            'endpoint': rule.endpoint,
-            'methods': list(rule.methods),
-            'path': str(rule)
-        })
-    
-    # Collect debug information
-    debug_info = {
-        'database_path': DATABASE,
+    return jsonify({
         'tables': tables,
-        'table_stats': table_stats,
-        'app_routes': routes,
-        'environment': {
-            'flask_env': os.environ.get('FLASK_ENV'),
-            'database_dir': os.environ.get('DATABASE_DIR'),
-            'flask_app': os.environ.get('FLASK_APP'),
-            'flask_debug': os.environ.get('FLASK_DEBUG'),
-            'working_directory': os.getcwd(),
-            'python_path': sys.path
-        }
-    }
-    
-    return jsonify(debug_info)
+        'posts_count': posts_count,
+        'database_path': DATABASE
+    })
 
 '''
 Get all posts from the database.

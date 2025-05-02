@@ -1,8 +1,7 @@
 <script>
 	// Import the push function from svelte-spa-router to handle navigation programmatically
 	import { push, link } from 'svelte-spa-router';
-	import { isLoggedIn, logout, userRole } from '../authStore.js'; // Import store and actions
-	import { onMount } from 'svelte';
+	import { isLoggedIn, logout } from '../authStore.js'; // Import store and actions
 	
 	// This prop receives the current path from the parent component (App.svelte)
 	// It's used to highlight the active navigation link
@@ -16,15 +15,6 @@
 		// Navigate to the specified path using the router
 		push(path);
 	}
-	
-	// Debug: Log when role changes
-	onMount(() => {
-		const unsubscribe = userRole.subscribe(role => {
-			console.log('Current user role in Navbar:', role);
-		});
-		
-		return unsubscribe;
-	});
 </script>
 
 <!-- Main navigation component -->
@@ -41,9 +31,6 @@
 			<a href="/" use:link class="nav-link" class:active={currentPath === '/'}>Home</a>
 			<a href="/about" use:link class="nav-link" class:active={currentPath === '/about'}>About</a>
 			{#if $isLoggedIn}
-				<!-- Debug: Show current role -->
-				<span class="nav-link" style="color: grey;">Role: {$userRole || 'none'}</span>
-				
 				<a href="/create-post" use:link class="nav-link">Create Post</a>
 				<button on:click={logout} class="nav-link logout-btn">Logout</button>
 			{:else}
