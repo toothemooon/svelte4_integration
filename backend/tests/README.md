@@ -13,14 +13,20 @@ python -m pytest
 
 ## Running Tests with Coverage
 
-To run tests and generate a coverage report (including an HTML report inside `tests/htmlcov/`), use the provided script:
+To run tests and generate a coverage report:
 
-```bash
-cd backend
-python tests/run_coverage.py
-```
+1. Navigate to the `backend` directory.
+2. Run pytest with the coverage flag:
+   ```bash
+   python -m pytest --cov=. tests/
+   ```
+3. (Optional) To generate an HTML report after running the command above, run:
+   ```bash
+   python -m coverage html
+   ```
+   This will create an `htmlcov/` directory in the `backend` folder with the detailed report.
 
-This script uses the configuration in `tests/.coveragerc` to control coverage measurement and reporting.
+Coverage measurement is handled by `pytest-cov`.
 
 ## Test Organization
 
@@ -30,8 +36,6 @@ The tests are organized as follows:
 - `test_*.py`: Files containing test functions (e.g., `test_api.py`).
 - `test_db_utils.py`: Utilities for setting up/tearing down test databases (used by fixtures).
 - `debug_utils.py`: Helper functions for debugging database/environment issues.
-- `.coveragerc`: Configuration file for code coverage.
-- `run_coverage.py`: Script to easily run tests with coverage reporting.
 
 ## Adding New Tests
 

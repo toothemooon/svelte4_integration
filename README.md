@@ -144,11 +144,16 @@ https://YOUR-APP-NAME.azurewebsites.net
 The `backend/tests/` directory contains tests for the Flask application using `pytest`.
 
 To run the tests:
-1. Ensure you have activated your virtual environment and installed dependencies (`pip install -r backend/requirements.txt`).
+1. Ensure you have activated your virtual environment and installed dependencies (`pip install -r backend/requirements.txt`), including `pytest` and `pytest-cov`.
 2. Navigate to the `backend` directory (`cd backend`).
 3. Run `python -m pytest`.
 
-For detailed instructions on running tests, generating coverage reports, and adding new tests, please see the `README.md` file inside the `backend/tests/` directory.
+To run tests with coverage:
+1. Navigate to the `backend` directory (`cd backend`).
+2. Run `python -m pytest --cov=. tests/`.
+3. To generate an HTML report (in `backend/htmlcov/`), run `python -m coverage html` after running the tests with `--cov`.
+
+For detailed information on the test structure, fixtures, and utilities, please see the `README.md` file inside the `backend/tests/` directory.
 
 ## Frontend Features
 

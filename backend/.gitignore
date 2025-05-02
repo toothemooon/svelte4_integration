@@ -3,7 +3,9 @@
 htmlcov/
 
 # Pytest cache
-.pytest_cache/
+# Now located inside tests/
+tests/.pytest_cache/
 
 # Python cache
 __pycache__/ 
+
