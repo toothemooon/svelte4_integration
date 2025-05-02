@@ -14,31 +14,41 @@ The frontend makes API calls to the backend to fetch data, which is then display
 
 ```
 old_svelte/
-├── frontend/                # Svelte frontend application
-│   ├── public/              # Static assets and HTML template
-│   ├── src/                 # Source code
-│   │   ├── components/      # UI components
-│   │   │   ├── Navbar.svelte  # Navigation component
-│   │   │   ├── Home.svelte    # Blog listing page
-│   │   │   ├── Post.svelte    # Individual blog post view with comments
-│   │   │   ├── Comments.svelte # Post-specific comments component
-│   │   │   ├── Footer.svelte  # Simple footer with credits
-│   │   │   └── About.svelte   # About page
-│   │   ├── App.svelte       # Main application component with routing
-│   │   └── main.js          # Entry point (updated to remove unused props)
-│   ├── package.json         # NPM dependencies and scripts
-│   └── rollup.config.js     # Rollup bundler configuration
-│
 ├── backend/                 # Flask backend application
 │   ├── app.py               # Main Flask application
 │   ├── schema.sql           # SQL schema for database (users and comments)
 │   ├── init_db.py           # Script to initialize/reset the local database
 │   ├── requirements.txt     # Python dependencies
-│   ├── database.db          # Local SQLite database file
-│   └── deploy/              # Deployment scripts and configurations
-│       ├── deploy-to-azure.sh  # Script to deploy backend to Azure (persistent DB)
-│       └── debug_azure.py   # Optional script to debug Azure DB issues
+│   ├── database.db          # Local SQLite database file (Gitignored)
+│   ├── deploy/              # Deployment scripts and configurations
+│   │   ├── deploy-to-azure.sh # Script to deploy backend to Azure (persistent DB)
+│   │   └── debug_azure.py   # Optional script to debug Azure DB issues
+│   └── tests/               # Backend tests (pytest)
+│       ├── README.md        # Instructions for running tests
+│       ├── test_api.py
+│       ├── conftest.py
+│       ├── run_coverage.py  # Script to run tests with coverage
+│       └── ...              # Other test utilities
 │
+├── frontend/                # Svelte frontend application
+│   ├── public/              # Static assets and HTML template
+│   ├── src/                 # Source code
+│   │   ├── components/      # UI components
+│   │   │   ├── Navbar.svelte
+│   │   │   ├── Home.svelte
+│   │   │   ├── Post.svelte
+│   │   │   ├── Comments.svelte
+│   │   │   ├── Footer.svelte
+│   │   │   └── About.svelte
+│   │   ├── App.svelte       # Main application component with routing
+│   │   ├── main.js          # Entry point
+│   │   └── config.js        # Backend API URL configuration
+│   ├── package.json         # NPM dependencies and scripts
+│   └── rollup.config.js     # Rollup bundler configuration
+│
+├── .github/                 # (Removed - Workflows deleted)
+├── .venv/                   # Python virtual environment (Gitignored)
+├── .gitattributes
 └── README.md                # This documentation file
 ```
 
@@ -47,50 +57,62 @@ old_svelte/
 ### Backend (Flask)
 
 1. Navigate to the backend directory:
-```
+```bash
 cd backend
 ```
 
-2. Install dependencies:
+2. Create and activate a virtual environment (recommended):
+```bash
+python -m venv ../.venv  # Create venv in project root
+source ../.venv/bin/activate # On Linux/macOS
+# or ..\\.venv\\Scripts\\activate on Windows
 ```
+
+3. Install dependencies:
+```bash
 pip install -r requirements.txt
 ```
 
-3. Initialize the database with sample data:
+4. Initialize the *local* database with sample data (only needed once or for reset):
 ```bash
 python init_db.py
 ```
-**Note:** Run this command only once initially, or when you want to completely reset the *local* database. For subsequent local runs, just start the app (step 4).
+**Warning:** This script drops existing tables. For production, database initialization is handled differently (see Azure deployment).
 
-4. Run the Flask application:
+5. Run the Flask application for local development:
 ```bash
+# Optional: Set FLASK_DEBUG=true for development features
+export FLASK_DEBUG=true # Linux/macOS
+# set FLASK_DEBUG=true # Windows CMD
+# $env:FLASK_DEBUG = "true" # Windows PowerShell
+
 python app.py
 ```
 
-The backend will be available at http://localhost:5001 (Note: We use port 5001 because port 5000 is often used by macOS AirPlay Receiver)
+The backend will be available at http://localhost:5001.
 
 ### Frontend (Svelte)
 
 1. Navigate to the frontend directory:
-```
+```bash
 cd frontend
 ```
 
 2. Install dependencies:
-```
+```bash
 npm install
 ```
 
 3. Run the development server:
-```
+```bash
 npm run dev
 ```
 
 The frontend will be available at http://localhost:8080
 
-## Deploying to Azure App Service
+## Deploying Backend to Azure App Service
 
-The backend includes a deployment script (`backend/deploy/deploy-to-azure.sh`) to easily deploy to Microsoft Azure App Service. This script includes fixes to ensure database persistence, resolving issues where comments might disappear after backend restarts.
+The backend includes a deployment script (`backend/deploy/deploy-to-azure.sh`) to easily deploy to Microsoft Azure App Service. This script includes fixes to ensure database persistence.
 
 ### Prerequisites
 - Azure account with an active subscription
@@ -109,29 +131,24 @@ az login
 bash ./backend/deploy/deploy-to-azure.sh
 ```
 
-The script will:
-- Package your backend application, including necessary configuration files.
-- Ensure dependencies are installed correctly on Azure.
-- Set up a persistent location for the SQLite database (`/home/site/wwwroot/data`).
-- Deploy the package to your Azure App Service.
-- Configure the correct startup command (`startup.sh`).
-
-**Important:** The first deployment will initialize the database. Subsequent deployments using this script will *preserve* the existing database, keeping user comments intact.
+The script handles packaging, dependencies, persistent storage setup, and deployment.
 
 3. Your backend API will be available at:
 ```
 https://YOUR-APP-NAME.azurewebsites.net
 ```
-*(Replace `YOUR-APP-NAME` with your actual Azure App Service name, e.g., `https://sarada.azurewebsites.net`)*
+*(Replace `YOUR-APP-NAME` with your actual Azure App Service name)*
 
-### Testing Deployment
+## Backend Testing
 
-After deployment, you can test the API health check endpoint:
-```
-curl -i https://YOUR-APP-NAME.azurewebsites.net/api/health
-```
+The `backend/tests/` directory contains tests for the Flask application using `pytest`.
 
-You should receive a successful response with `{"status": "ok", "message": "Flask backend is running"}`.
+To run the tests:
+1. Ensure you have activated your virtual environment and installed dependencies (`pip install -r backend/requirements.txt`).
+2. Navigate to the `backend` directory (`cd backend`).
+3. Run `python -m pytest`.
+
+For detailed instructions on running tests, generating coverage reports, and adding new tests, please see the `README.md` file inside the `backend/tests/` directory.
 
 ## Frontend Features
 
@@ -252,32 +269,24 @@ The backend provides these API endpoints:
 - **DELETE /api/comments/:comment_id** - Deletes a specific comment
   - Returns: Success message with the deleted comment ID
 
-## Testing Backend-Frontend Connection
+## Testing Backend-Frontend Connection (Manual)
 
-To test if your frontend can communicate with the backend, use the browser's developer console (F12) and run:
+To manually test if your frontend can communicate with the backend from your browser's developer console (F12):
 
+Test the health check:
 ```javascript
-fetch('http://localhost:5001/api/health')
+fetch('http://localhost:5001/api/health') // Replace with your Azure URL if testing deployed version
   .then(response => response.json())
-  .then(data => {
-    console.log('Connection successful!', data);
-  })
-  .catch(error => {
-    console.error('Connection failed:', error);
-  });
+  .then(data => console.log('Connection successful!', data))
+  .catch(error => console.error('Connection failed:', error));
 ```
 
-To test the comments API specifically:
-
+Test the comments API (for post ID 1):
 ```javascript
-fetch('http://localhost:5001/api/posts/1/comments')
+fetch('http://localhost:5001/api/posts/1/comments') // Replace URL if needed
   .then(response => response.json())
-  .then(data => {
-    console.log('Comments for post #1:', data);
-  })
-  .catch(error => {
-    console.error('Failed to fetch comments:', error);
-  });
+  .then(data => console.log('Comments for post #1:', data))
+  .catch(error => console.error('Failed to fetch comments:', error));
 ```
 
 ## Future Enhancements

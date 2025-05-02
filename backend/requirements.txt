@@ -1,4 +1,8 @@
 Flask==2.0.1
 Werkzeug==2.0.1
 Flask-Cors==3.0.10
-gunicorn 
+gunicorn
+
+# Testing dependencies
+pytest==7.3.1
+pytest-cov==4.1.0 

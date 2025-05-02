@@ -204,5 +204,7 @@ def delete_comment(comment_id):
 if __name__ == '__main__':
     # Get port from environment variable or default to 5001
     port = int(os.environ.get('PORT', 5001))
+    # Get debug mode from environment variable (defaults to False)
+    debug_mode = os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'
     # Note: Port 5001 is used because port 5000 is often in use on macOS
-    app.run(host='0.0.0.0', debug=True, port=port) 
+    app.run(host='0.0.0.0', debug=debug_mode, port=port) 

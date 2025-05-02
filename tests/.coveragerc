@@ -1,0 +1,16 @@
+[run]
+data_file = tests/.coverage
+source = ..
+
+[report]
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    if self.debug:
+    raise NotImplementedError
+    if __name__ == .__main__.:
+    pass
+    raise ImportError
+
+[html]
+directory = tests/htmlcov 
