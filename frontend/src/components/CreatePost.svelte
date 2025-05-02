@@ -1,7 +1,7 @@
 <!-- frontend/src/components/CreatePost.svelte -->
 <script>
     import { onMount } from 'svelte';
-    import { isLoggedIn, token as authToken, userRole } from '../authStore.js'; // Import userRole 
+    import { isLoggedIn, token as authToken } from '../authStore.js'; // Remove userRole import
     import { push } from 'svelte-spa-router'; // For redirecting
     import { API_URL } from '../config.js'; // Import the API URL
     import { get } from 'svelte/store'; // Import get to read store value once
@@ -12,7 +12,7 @@
     let error = null;
     let success = null;
 
-    // Route Guard: Redirect if not logged in or not admin
+    // Route Guard: Redirect if not logged in
     onMount(() => {
         const unsubscribe = isLoggedIn.subscribe(loggedIn => {
             if (!loggedIn) {
@@ -20,16 +20,8 @@
                 push('/'); // Redirect to home page
                 return;
             }
-            
-            // Check if user is admin
-            const role = get(userRole);
-            if (role !== 'admin') {
-                console.log('User not admin, redirecting from /create-post');
-                push('/'); // Redirect non-admin users to home page
-            }
         });
-        // Important: Unsubscribe when component is destroyed
-        return unsubscribe; 
+        return unsubscribe;
     });
 
     async function handleSubmit() {

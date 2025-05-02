@@ -1,24 +1,18 @@
 <!-- frontend/src/components/Auth.svelte -->
 <script>
-    import { register, login, errorMsg, clearError, isLoggedIn, token, userRole } from '../authStore.js'; // Import real actions
+    import { register, login, errorMsg, clearError, isLoggedIn, token } from '../authStore.js'; // Import real actions
     import { onMount } from 'svelte';
 
     let username = '';
     let password = '';
     let isLoginMode = true; // Toggle between Login and Register
 
-    // Add a subscription to see the token and role after login
+    // Add a subscription to see the token
     let currentToken = null;
-    let currentRole = null;
     
     // Subscribe to token changes
     token.subscribe(value => {
         currentToken = value;
-    });
-    
-    // Subscribe to role changes
-    userRole.subscribe(value => {
-        currentRole = value;
     });
 
     // Clear any previous errors when the component mounts or mode changes
@@ -80,7 +74,6 @@
         <div class="debug-info">
             <h3>Debug Information</h3>
             <p><strong>Logged in:</strong> {$isLoggedIn}</p>
-            <p><strong>Role:</strong> {currentRole || 'none'}</p>
             <p><strong>Token:</strong> {currentToken ? (currentToken.length > 30 ? currentToken.substring(0, 30) + '...' : currentToken) : 'none'}</p>
         </div>
         {/if}

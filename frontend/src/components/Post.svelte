@@ -145,8 +145,8 @@
             <div class="post-actions">
                 <a href="/" class="back-button">← Back to posts</a>
                 
-                <!-- Admin-only delete button -->
-                {#if $isLoggedIn && $userRole === 'admin'}
+                <!-- Show delete button only for post owner -->
+                {#if $isLoggedIn && post.user_id === currentUserId}
                     <button 
                         class="delete-button" 
                         on:click={deletePost} 

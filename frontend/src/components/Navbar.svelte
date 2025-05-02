@@ -44,9 +44,7 @@
 				<!-- Debug: Show current role -->
 				<span class="nav-link" style="color: grey;">Role: {$userRole || 'none'}</span>
 				
-				{#if $userRole === 'admin'}
-					<a href="/create-post" use:link class="nav-link">Create Post</a>
-				{/if}
+				<a href="/create-post" use:link class="nav-link">Create Post</a>
 				<button on:click={logout} class="nav-link logout-btn">Logout</button>
 			{:else}
 				<a href="/auth" use:link class="nav-link login-btn">Login</a>

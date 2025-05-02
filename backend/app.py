@@ -278,92 +278,39 @@ Returns:
 @app.route('/api/posts', methods=['GET'])
 def get_posts():
     """Get all posts from the database, including user data."""
-    # Add debugging logs
-    app.logger.debug("Entering /api/posts endpoint")
-    
     try:
-        # Get database connection
-        conn = get_db()
+        db = get_db()
         
-        # Log database connection
-        app.logger.debug(f"Database connection established: {conn}")
+        # Simple query to get posts with author usernames
+        query = """
+        SELECT 
+            posts.id, 
+            posts.title, 
+            posts.content, 
+            posts.timestamp, 
+            users.username
+        FROM posts
+        JOIN users ON posts.user_id = users.id
+        ORDER BY posts.timestamp DESC
+        """
         
-        # Join posts with users table to get the username
-        try:
-            # More clear query with explicit column selection
-            query = """
-            SELECT 
-                posts.id, 
-                posts.title, 
-                posts.content, 
-                posts.created, 
-                users.username
-            FROM posts
-            JOIN users ON posts.user_id = users.id
-            ORDER BY posts.created DESC
-            """
-            app.logger.debug(f"Executing SQL query: {query}")
-            
-            # Execute the query
-            posts = conn.execute(query).fetchall()
-            
-            # Log query results
-            app.logger.debug(f"Query returned {len(posts)} posts")
-            
-        except Exception as sql_error:
-            # Log SQL-specific errors
-            app.logger.error(f"SQL error in /api/posts: {str(sql_error)}")
-            
-            # Fallback to simpler query without join if the first one fails
-            app.logger.debug("Attempting fallback query without JOIN")
-            
-            # Simple query just getting posts
-            posts = conn.execute(
-                'SELECT id, title, content, created FROM posts ORDER BY created DESC'
-            ).fetchall()
-            
-            app.logger.debug(f"Fallback query returned {len(posts)} posts")
+        posts = db.execute(query).fetchall()
         
-        conn.close()
-        
-        # Convert the posts to a list of dictionaries
+        # Convert posts to list of dictionaries
         post_list = []
         for post in posts:
-            # Convert datetime to string for JSON serialization
-            # and format it for display
-            created_date = post['created']
-            if isinstance(created_date, str):
-                # If it's already a string, use it as is
-                formatted_date = created_date
-            else:
-                # Format datetime object
-                formatted_date = created_date.strftime('%B %d, %Y')
-            
-            # Create dictionary with post data
             post_dict = {
                 'id': post['id'],
                 'title': post['title'],
                 'content': post['content'],
-                'timestamp': post['created'],
-                'formattedDate': formatted_date
+                'timestamp': post['timestamp'],
+                'username': post['username']
             }
-            
-            # Add username if available (from JOIN query)
-            if 'username' in post.keys():
-                post_dict['username'] = post['username']
-            else:
-                post_dict['username'] = 'Unknown'  # Fallback
-            
             post_list.append(post_dict)
         
-        app.logger.debug(f"Returning {len(post_list)} formatted posts")
         return jsonify(post_list)
         
     except Exception as e:
-        # Log any other errors
-        app.logger.error(f"Error in /api/posts endpoint: {str(e)}")
-        
-        # Return an error response
         return jsonify({'error': str(e)}), 500
 
 '''
@@ -587,42 +534,44 @@ Requires authentication.
 @app.route('/api/posts', methods=['POST'])
 @token_required
 def add_post(current_user):
-    # current_user is passed from the decorator
-    request_data = request.get_json()
+    """Create a new post."""
+    data = request.get_json()
     
-    if not request_data or 'title' not in request_data or 'content' not in request_data:
+    # Validate input
+    if not data or not data.get('title') or not data.get('content'):
         return jsonify({"error": "Title and content are required"}), 400
     
-    title = request_data['title']
-    content = request_data['content']
-    user_id = current_user['id'] # Get user ID from the authenticated user
+    title = data['title'].strip()
+    content = data['content'].strip()
     
-    if not title.strip() or not content.strip():
+    if not title or not content:
         return jsonify({"error": "Title and content cannot be empty"}), 400
 
-    db = get_db()
     try:
-        cursor = db.execute('INSERT INTO posts (title, content, user_id) VALUES (?, ?, ?)', (title, content, user_id))
+        db = get_db()
+        cursor = db.execute(
+            'INSERT INTO posts (title, content, user_id) VALUES (?, ?, ?)',
+            (title, content, current_user['id'])
+        )
         db.commit()
+        
+        # Get the newly created post
+        new_post = db.execute(
+            'SELECT id, title, content, timestamp FROM posts WHERE id = ?',
+            (cursor.lastrowid,)
+        ).fetchone()
+        
+        return jsonify({
+            "id": new_post['id'],
+            "title": new_post['title'],
+            "content": new_post['content'],
+            "timestamp": new_post['timestamp'],
+            "message": "Post created successfully"
+        }), 201
+        
     except Exception as e:
         db.rollback()
-        print(f"Error adding post: {e}")
-        return jsonify({"error": "Failed to add post"}), 500
-        
-    new_id = cursor.lastrowid
-    
-    cursor = db.execute('SELECT timestamp FROM posts WHERE id = ?', (new_id,))
-    new_post_row = cursor.fetchone()
-    timestamp = new_post_row['timestamp'] if new_post_row else datetime.utcnow().isoformat()
-
-    return jsonify({
-        "id": new_id,
-        "title": title,
-        "content": content,
-        "user_id": user_id,
-        "timestamp": timestamp,
-        "message": "Post created successfully"
-    }), 201
+        return jsonify({"error": "Failed to create post"}), 500
 
 '''
 Edit an existing blog post (Protected Route).
@@ -638,70 +587,75 @@ Returns:
 @app.route('/api/posts/<int:post_id>', methods=['PUT'])
 @token_required
 def edit_post(current_user, post_id):
-    # Get database connection
-    db = get_db()
+    """Edit an existing post."""
+    data = request.get_json()
     
-    # First, check if the post exists
-    cursor = db.execute('SELECT * FROM posts WHERE id = ?', (post_id,))
-    post = cursor.fetchone()
+    # Validate input
+    if not data or not data.get('title') or not data.get('content'):
+        return jsonify({'error': 'Title and content are required'}), 400
     
-    if not post:
-        return jsonify({'message': 'Post not found'}), 404
+    title = data['title'].strip()
+    content = data['content'].strip()
     
-    # Check if user is the owner
-    if post['user_id'] != current_user['id']:
-        return jsonify({'message': 'Not authorized to edit this post'}), 403
-    
-    # Get request data
-    request_data = request.get_json()
-    
-    # Validate request data
-    if not request_data or 'title' not in request_data or 'content' not in request_data:
-        return jsonify({'message': 'Missing title or content'}), 400
-    
-    # Update the post
-    db.execute(
-        'UPDATE posts SET title = ?, content = ? WHERE id = ?',
-        (request_data['title'], request_data['content'], post_id)
-    )
-    db.commit()
-    
-    # Get the updated post
-    cursor = db.execute('SELECT * FROM posts WHERE id = ?', (post_id,))
-    updated_post = cursor.fetchone()
-    
-    # Create a response
-    post_data = {
-        'id': updated_post['id'],
-        'title': updated_post['title'],
-        'content': updated_post['content'],
-        'user_id': updated_post['user_id'],
-        'timestamp': updated_post['timestamp'],
-        'message': 'Post updated successfully'
-    }
-    
-    return jsonify(post_data), 200
+    if not title or not content:
+        return jsonify({'error': 'Title and content cannot be empty'}), 400
+
+    try:
+        db = get_db()
+        
+        # Check if post exists and user is owner
+        post = db.execute('SELECT user_id FROM posts WHERE id = ?', (post_id,)).fetchone()
+        if not post:
+            return jsonify({'error': 'Post not found'}), 404
+        if post['user_id'] != current_user['id']:
+            return jsonify({'error': 'Not authorized to edit this post'}), 403
+        
+        # Update post
+        db.execute(
+            'UPDATE posts SET title = ?, content = ? WHERE id = ?',
+            (title, content, post_id)
+        )
+        db.commit()
+        
+        # Get updated post
+        updated_post = db.execute(
+            'SELECT id, title, content, timestamp FROM posts WHERE id = ?',
+            (post_id,)
+        ).fetchone()
+        
+        return jsonify({
+            'id': updated_post['id'],
+            'title': updated_post['title'],
+            'content': updated_post['content'],
+            'timestamp': updated_post['timestamp'],
+            'message': 'Post updated successfully'
+        })
+        
+    except Exception as e:
+        db.rollback()
+        return jsonify({'error': 'Failed to update post'}), 500
 
 def delete_post(current_user, post_id):
-    # Get database connection
-    db = get_db()
-    
-    # First, check if the post exists
-    cursor = db.execute('SELECT * FROM posts WHERE id = ?', (post_id,))
-    post = cursor.fetchone()
-    
-    if not post:
-        return jsonify({'message': 'Post not found'}), 404
-    
-    # Check if user is the owner
-    if post['user_id'] != current_user['id']:
-        return jsonify({'message': 'Not authorized to delete this post'}), 403
-    
-    # Delete the post
-    db.execute('DELETE FROM posts WHERE id = ?', (post_id,))
-    db.commit()
-    
-    return jsonify({'message': 'Post deleted successfully'}), 200
+    """Delete a post."""
+    try:
+        db = get_db()
+        
+        # Check if post exists and user is owner
+        post = db.execute('SELECT user_id FROM posts WHERE id = ?', (post_id,)).fetchone()
+        if not post:
+            return jsonify({'error': 'Post not found'}), 404
+        if post['user_id'] != current_user['id']:
+            return jsonify({'error': 'Not authorized to delete this post'}), 403
+        
+        # Delete post
+        db.execute('DELETE FROM posts WHERE id = ?', (post_id,))
+        db.commit()
+        
+        return jsonify({'message': 'Post deleted successfully'})
+        
+    except Exception as e:
+        db.rollback()
+        return jsonify({'error': 'Failed to delete post'}), 500
 
 # Start the Flask application when run directly
 if __name__ == '__main__':
