@@ -117,9 +117,20 @@ echo "Persistent data directory: $PERSIST_DIR"
 # Set environment variable for the Flask app to find the database
 export DATABASE_DIR="$PERSIST_DIR"
 
-# Install Python dependencies
+# Verify requirements.txt exists and print its content
+echo "Verifying requirements.txt..."
+if [ -f "requirements.txt" ]; then
+  echo "Contents of requirements.txt:"
+  cat requirements.txt
+else
+  echo "ERROR: requirements.txt not found!"
+  exit 1
+fi
+
+# Install Python dependencies with error checking
 echo "Installing dependencies from requirements.txt..."
-pip install --no-cache-dir -r requirements.txt
+pip install --no-cache-dir -r requirements.txt || { echo 'ERROR: pip install failed!' ; exit 1; }
+echo "Dependencies installed successfully."
 
 # Log installed packages for debugging
 echo "Listing installed packages..."
@@ -131,7 +142,7 @@ echo "Patching app.py database path..."
 sed -i "s|DATABASE_DIR = os.environ.get('DATABASE_DIR', os.path.dirname(os.path.abspath(__file__)))|DATABASE_DIR = os.environ.get('DATABASE_DIR', '$PERSIST_DIR')|g" app.py
 
 # Double check CORS is properly configured for production
-echo "Verifying CORS configuration..."
+echo "Verifying CORS configuration in app.py..."
 if ! grep -q "CORS(app, resources={r\"/api/\*\": {\"origins\": \"\*\"" app.py; then
     echo "Enhancing CORS configuration for production..."
     if grep -q "CORS(app)" app.py; then
@@ -139,9 +150,10 @@ if ! grep -q "CORS(app, resources={r\"/api/\*\": {\"origins\": \"\*\"" app.py; t
     else
         # If not using the simple format, insert after the app creation
         sed -i '/app = Flask(__name__)/a\
-CORS(app, resources={r"/api/*": {"origins": "*", "methods": ["GET", "POST", "DELETE", "OPTIONS"], "allow_headers": ["Content-Type", "Authorization"]}})\' app.py
+CORS(app, resources={r"/api/*": {"origins": "*", "methods": ["GET", "POST", "DELETE", "OPTIONS"], "allow_headers": ["Content-Type", "Authorization"]}})' app.py
     fi
 fi
+echo "CORS check complete."
 
 # Dynamically create init_db.py that only runs if DB doesn't exist
 DB_FILE="$PERSIST_DIR/database.db"
