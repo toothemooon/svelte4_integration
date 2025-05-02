@@ -1,11 +1,21 @@
-# Test output files
+# Coverage files (data and html report)
 .coverage
 htmlcov/
 
-# Pytest cache
-# Now located inside tests/
-tests/.pytest_cache/
+# Build artifacts/caches
+build/tests/.pytest_cache/
+build/tests/.coverage # Coverage data inside tests
+build/tests/htmlcov/  # Coverage HTML report inside tests
 
 # Python cache
-__pycache__/ 
+__pycache__/
+*/__pycache__/
+*/*/__pycache__/
+
+# Local database for development
+*.db
+
+# IDE files
+.vscode/
+.idea/
 

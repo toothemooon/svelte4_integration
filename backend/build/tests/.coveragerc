@@ -1,0 +1,20 @@
+[run]
+# Source code is relative to the backend directory (where coverage is run)
+source = .
+omit =
+    build/*       # Exclude the build directory entirely
+    # Add other specific files if needed, e.g.
+    # init_db.py
+
+[report]
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    if self.debug:
+    raise NotImplementedError
+    if __name__ == .__main__.:
+    pass
+    # Exclude the sys.path manipulation in test files
+    sys.path.append
+
+# No [html] section needed if using default directory 

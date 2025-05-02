@@ -20,15 +20,16 @@ old_svelte/
 │   ├── init_db.py           # Script to initialize/reset the local database
 │   ├── requirements.txt     # Python dependencies
 │   ├── database.db          # Local SQLite database file (Gitignored)
-│   ├── deploy/              # Deployment scripts and configurations
-│   │   ├── deploy-to-azure.sh # Script to deploy backend to Azure (persistent DB)
-│   │   └── debug_azure.py   # Optional script to debug Azure DB issues
-│   └── tests/               # Backend tests (pytest)
-│       ├── README.md        # Instructions for running tests
-│       ├── test_api.py
-│       ├── conftest.py
-│       ├── run_coverage.py  # Script to run tests with coverage
-│       └── ...              # Other test utilities
+│   └── build/               # Build, deployment and test directories
+│       ├── deploy/          # Deployment scripts and configurations
+│       │   ├── deploy-to-azure.sh # Script to deploy backend to Azure
+│       │   └── debug_azure.py   # Debug script for Azure DB issues
+│       ├── tests/           # Backend tests (pytest)
+│       │   ├── README.md    # Instructions for running tests
+│       │   ├── test_api.py  # API tests
+│       │   ├── conftest.py  # Test fixtures and configuration
+│       │   └── ...          # Other test utilities
+│       └── pytest.ini       # Pytest configuration
 │
 ├── frontend/                # Svelte frontend application
 │   ├── public/              # Static assets and HTML template
@@ -112,7 +113,7 @@ The frontend will be available at http://localhost:8080
 
 ## Deploying Backend to Azure App Service
 
-The backend includes a deployment script (`backend/deploy/deploy-to-azure.sh`) to easily deploy to Microsoft Azure App Service. This script includes fixes to ensure database persistence.
+The backend includes a deployment script (`backend/build/deploy/deploy-to-azure.sh`) to easily deploy to Microsoft Azure App Service. This script includes fixes to ensure database persistence.
 
 ### Prerequisites
 - Azure account with an active subscription
@@ -128,7 +129,7 @@ az login
 
 2. Run the deployment script from the project root:
 ```bash
-bash ./backend/deploy/deploy-to-azure.sh
+bash ./backend/build/deploy/deploy-to-azure.sh
 ```
 
 The script handles packaging, dependencies, persistent storage setup, and deployment.
@@ -141,19 +142,9 @@ https://YOUR-APP-NAME.azurewebsites.net
 
 ## Backend Testing
 
-The `backend/tests/` directory contains tests for the Flask application using `pytest`.
+The `backend/build/tests/` directory contains automated tests for the Flask application using `pytest`.
 
-To run the tests:
-1. Ensure you have activated your virtual environment and installed dependencies (`pip install -r backend/requirements.txt`), including `pytest` and `pytest-cov`.
-2. Navigate to the `backend` directory (`cd backend`).
-3. Run `python -m pytest`.
-
-To run tests with coverage:
-1. Navigate to the `backend` directory (`cd backend`).
-2. Run `python -m pytest --cov=. tests/`.
-3. To generate an HTML report (in `backend/htmlcov/`), run `python -m coverage html` after running the tests with `--cov`.
-
-For detailed information on the test structure, fixtures, and utilities, please see the `README.md` file inside the `backend/tests/` directory.
+To run these tests and generate coverage reports, please refer to the instructions in the `backend/build/tests/README.md` file.
 
 ## Frontend Features
 
@@ -247,9 +238,9 @@ These fallbacks provide a more resilient user experience when working with a dis
 
 - **database.db**: The SQLite database file that stores the data.
 
-- **deploy/deploy-to-azure.sh**: The primary script for deploying the backend to Azure App Service. It packages the application, handles dependencies, and configures Azure for persistent database storage.
+- **build/deploy/deploy-to-azure.sh**: The primary script for deploying the backend to Azure App Service. It packages the application, handles dependencies, and configures Azure for persistent database storage.
 
-- **deploy/debug_azure.py**: An optional utility script to help diagnose database persistence issues directly on the Azure App Service environment if needed.
+- **build/deploy/debug_azure.py**: An optional utility script to help diagnose database persistence issues directly on the Azure App Service environment if needed.
 
 ## API Endpoints
 
