@@ -1,39 +1,51 @@
 #!/bin/bash
-# Fixed deployment script for Azure with proper dependencies
+# Deployment script for Flask backend to Azure App Service.
+# Ensures database persistence using Azure's persistent storage.
 
-# Configuration
-APP_NAME="sarada"
-RESOURCE_GROUP="blog_quickstart"
-# Use a path within backend/deploy for the package
-ZIP_PARENT_DIR="$(pwd)/backend/deploy"
-mkdir -p "$ZIP_PARENT_DIR"
-ZIP_FILE="$ZIP_PARENT_DIR/package.zip"
+# --- Configuration ---
+APP_NAME="sarada" # Replace with your Azure Web App name if different
+RESOURCE_GROUP="blog_quickstart" # Replace with your Azure Resource Group name
 
-echo "===== Fixed Azure Deployment with Persistent Database ====="
-echo "App name: $APP_NAME"
+# Paths (relative to project root where script is run)
+DEPLOY_DIR="$(pwd)/backend/deploy"
+TEMP_DIR="$DEPLOY_DIR/temp_deploy" # Temporary folder for packaging
+ZIP_FILE="$DEPLOY_DIR/package.zip" # Deployment package file
 
-# Verify Azure CLI is available
+# --- Script Start ---
+echo "===== Azure Deployment for $APP_NAME ====="
+
+# 1. Prerequisites Check
+echo "---> Checking prerequisites..."
 if ! command -v az &> /dev/null; then
-    echo "Error: Azure CLI is not installed."
+    echo "Error: Azure CLI ('az') command not found. Please install it."
     exit 1
 fi
-
-# Check login status
-echo "Checking Azure login status..."
+if ! command -v rsync &> /dev/null; then
+    echo "Error: 'rsync' command not found. Please install it."
+    exit 1
+fi
+if ! command -v zip &> /dev/null; then
+    echo "Error: 'zip' command not found. Please install it."
+    exit 1
+fi
 az account show &> /dev/null || az login
 
-# Prepare deployment folder
-echo "Preparing deployment package..."
-TEMP_DIR="$(pwd)/backend/deploy/temp_deploy"
+# 2. Prepare Deployment Package
+echo "---> Preparing deployment package in $TEMP_DIR ..."
 mkdir -p "$TEMP_DIR"
+rm -rf "$TEMP_DIR/*" # Clean temp directory
 
-# Copy backend files (excluding the deploy subdir itself)
+# Copy backend application files (excluding the deploy subdirectory)
+echo "Copying application files..."
 rsync -av --progress backend/ "$TEMP_DIR/" --exclude deploy
 
-# Copy the debug script from its new location
-cp backend/deploy/debug_azure.py "$TEMP_DIR/"
+# Copy the Azure debugging script (optional, but helpful)
+if [ -f "$DEPLOY_DIR/debug_azure.py" ]; then
+    cp "$DEPLOY_DIR/debug_azure.py" "$TEMP_DIR/"
+fi
 
-# Create requirements.txt with exact versions
+# Create requirements.txt with pinned versions for stable deployment
+echo "Creating requirements.txt..."
 cat > "$TEMP_DIR/requirements.txt" << 'EOF'
 Flask==2.0.1
 flask-cors==3.0.10
@@ -41,97 +53,86 @@ Werkzeug==2.0.1
 gunicorn==20.1.0
 EOF
 
-# Create a simpler, more robust startup script
-cat > "$TEMP_DIR/startup.sh" << 'EOF'
+# Create the startup script that Azure will run
+echo "Creating startup.sh..."
+cat > "$TEMP_DIR/startup.sh" << 'EOF_STARTUP'
 #!/bin/bash
-# Set -e to exit on error
+# Startup script executed by Azure App Service
+
+# Exit immediately if a command exits with a non-zero status.
 set -e
 
-echo "Starting Azure deployment startup script"
+echo "--- Azure Startup Script Begin ---"
+echo "Timestamp: $(date)"
 echo "Current directory: $(pwd)"
 echo "Python version: $(python --version)"
 
-# Create persistent data directory
+# Define the persistent storage directory for the database
 PERSIST_DIR="/home/site/wwwroot/data"
 mkdir -p "$PERSIST_DIR"
+echo "Persistent data directory: $PERSIST_DIR"
 
-# Install dependencies first
-echo "Installing dependencies from requirements.txt"
-pip install -r requirements.txt
-
-# Make sure flask-cors is specifically installed
-echo "Ensuring flask-cors is installed"
-pip install flask-cors==3.0.10
-
-# Export database directory 
+# Set environment variable for the Flask app to find the database
 export DATABASE_DIR="$PERSIST_DIR"
-echo "Database directory set to: $DATABASE_DIR"
 
-# Modify app.py to use the persistent path
-echo "Patching app.py to use persistent database location"
-sed -i "s|DATABASE_DIR = os.environ.get('DATABASE_DIR', os.path.dirname(os.path.abspath(__file__)))|DATABASE_DIR = os.environ.get('DATABASE_DIR', '/home/site/wwwroot/data')|g" app.py
+# Install Python dependencies
+echo "Installing dependencies from requirements.txt..."
+pip install --no-cache-dir -r requirements.txt
 
-# Check for existing database
-if [ ! -f "$PERSIST_DIR/database.db" ]; then
-    echo "No database found, initializing at $PERSIST_DIR/database.db"
-    # Copy original init_db but modify it to preserve data
-    cat > init_db.py << 'EOFDB'
+# Dynamically patch app.py to use the persistent database path
+# This avoids needing different code for local vs Azure.
+echo "Patching app.py database path..."
+sed -i "s|DATABASE_DIR = os.environ.get('DATABASE_DIR', os.path.dirname(os.path.abspath(__file__)))|DATABASE_DIR = os.environ.get('DATABASE_DIR', '$PERSIST_DIR')|g" app.py
+
+# Dynamically create init_db.py that only runs if DB doesn't exist
+DB_FILE="$PERSIST_DIR/database.db"
+if [ ! -f "$DB_FILE" ]; then
+    echo "Database not found ($DB_FILE), initializing..."
+    cat > init_db.py << 'EOF_INITDB'
 from app import app, get_db
-import os
-import sqlite3
-
+import os, sqlite3
+print("--- Running Database Initialization --- ")
 with app.app_context():
-    # Use persistent directory
-    db_path = os.path.join(os.environ.get('DATABASE_DIR', '/home/site/wwwroot/data'), 'database.db')
-    
-    # Only initialize if doesn't exist
+    db_path = os.path.join(os.environ.get('DATABASE_DIR'), 'database.db')
     if not os.path.exists(db_path):
-        print(f"Database does not exist at {db_path}, initializing...")
-        # Initialize the database schema
+        print(f"Creating schema at {db_path}...")
         db = get_db()
         with app.open_resource('schema.sql', mode='r') as f:
             db.executescript(f.read())
-        
-        # Add some sample data
+        # Add sample data (optional)
         db.execute('INSERT OR IGNORE INTO users (username, email) VALUES (?, ?)', ('user1', 'user1@example.com'))
         db.execute('INSERT OR IGNORE INTO users (username, email) VALUES (?, ?)', ('user2', 'user2@example.com'))
-        db.execute('INSERT OR IGNORE INTO users (username, email) VALUES (?, ?)', ('user3', 'user3@example.com'))
-        
-        # Insert sample comments for different posts
-        db.execute('INSERT INTO comments (post_id, content) VALUES (?, ?)', (1, 'Feel free to leave your comments here!',))
-        db.execute('INSERT INTO comments (post_id, content) VALUES (?, ?)', (1, 'I found this very helpful for getting started.',))
-        db.execute('INSERT INTO comments (post_id, content) VALUES (?, ?)', (2, 'The component explanation was exactly what I needed.',))
-        db.execute('INSERT INTO comments (post_id, content) VALUES (?, ?)', (3, 'Looking forward to more posts on routing.',))
-        
+        db.execute('INSERT INTO comments (post_id, content) VALUES (?, ?)', (1, 'Default comment 1!',))
+        db.execute('INSERT INTO comments (post_id, content) VALUES (?, ?)', (1, 'Default comment 2!',))
         db.commit()
-        print("Database initialized successfully with sample data.")
+        print("Database schema created and sample data added.")
     else:
-        print(f"Database already exists at {db_path}, skipping initialization.")
-        # Just print a quick count of comments for verification
-        db = get_db()
-        cursor = db.execute('SELECT COUNT(*) FROM comments')
-        count = cursor.fetchone()[0]
-        print(f"Found {count} existing comments in the database.")
-EOFDB
-    # Run modified init script
+        print(f"Database already exists at {db_path}, skipping schema creation.")
+print("--- Database Initialization Complete --- ")
+EOF_INITDB
+    # Execute the dynamically created init script
     python init_db.py
 else
-    echo "Database already exists at $PERSIST_DIR/database.db"
+    echo "Database already exists ($DB_FILE), skipping initialization."
 fi
 
-# Show all files in persistent directory
-echo "Current files in $PERSIST_DIR:"
+# Display contents of persistent directory for logs
+echo "Contents of $PERSIST_DIR:"
 ls -la "$PERSIST_DIR"
 
-# Start the app with gunicorn
-echo "Starting gunicorn server on port 8000"
-gunicorn --bind=0.0.0.0:8000 app:app
-EOF
+# Start the Gunicorn server
+echo "Starting Gunicorn server..."
+gunicorn --bind=0.0.0.0:8000 --timeout 600 app:app
 
-# Make the startup script executable
+echo "--- Azure Startup Script End ---"
+EOF_STARTUP' # End of startup script heredoc
+
+# Make the startup script executable within the package
 chmod +x "$TEMP_DIR/startup.sh"
 
-# Create web.config for Azure
+# Create web.config needed for Python apps on Azure Windows App Service (even if using Linux)
+# It mainly tells IIS how to hand off requests via HttpPlatformHandler.
+echo "Creating web.config..."
 cat > "$TEMP_DIR/web.config" << 'EOF'
 <?xml version="1.0" encoding="utf-8"?>
 <configuration>
@@ -139,9 +140,9 @@ cat > "$TEMP_DIR/web.config" << 'EOF'
     <handlers>
       <add name="PythonHandler" path="*" verb="*" modules="httpPlatformHandler" resourceType="Unspecified" />
     </handlers>
-    <httpPlatform processPath="%HOME%\site\wwwroot\startup.sh" 
-                  arguments="" 
-                  stdoutLogEnabled="true" 
+    <httpPlatform processPath="%HOME%\site\wwwroot\startup.sh"
+                  arguments=""
+                  stdoutLogEnabled="true"
                   stdoutLogFile="%HOME%\LogFiles\python.log" />
   </system.webServer>
   <system.web>
@@ -150,30 +151,43 @@ cat > "$TEMP_DIR/web.config" << 'EOF'
 </configuration>
 EOF
 
-# Create the zip file
-echo "Creating deployment package at $ZIP_FILE"
-rm -f "$ZIP_FILE" 2>/dev/null
-cd "$TEMP_DIR"
-zip -r "$ZIP_FILE" .
-cd - > /dev/null
+# 3. Create Zip Package
+echo "---> Creating deployment package: $ZIP_FILE ..."
+rm -f "$ZIP_FILE" # Remove old package if exists
+cd "$TEMP_DIR" # Go into temp dir to zip contents correctly
+zip -r "$ZIP_FILE" . -x "*.pyc" "__pycache__/*" ".DS_Store"
+cd - > /dev/null # Go back to original directory
 
-# Verify zip file exists
+# Verify zip file was created
 if [ ! -f "$ZIP_FILE" ]; then
-    echo "Error: Zip file was not created successfully at $ZIP_FILE"
+    echo "Error: Zip package creation failed!"
+    exit 1
+fi
+echo "Zip package created successfully."
+
+# 4. Clean up temporary directory
+echo "---> Cleaning up temporary files..."
+rm -rf "$TEMP_DIR"
+
+# 5. Deploy to Azure
+echo "---> Deploying $ZIP_FILE to Azure Web App: $APP_NAME ..."
+az webapp deploy --resource-group "$RESOURCE_GROUP" --name "$APP_NAME" --src-path "$ZIP_FILE" --type zip --clean true --verbose
+
+# Check deployment status
+if [ $? -ne 0 ]; then
+    echo "Error: Azure deployment failed. Check logs above."
     exit 1
 fi
 
-# Clean up temp files
-rm -rf "$TEMP_DIR"
-
-# Deploy to Azure
-echo "Deploying to Azure Web App: $APP_NAME"
-az webapp deploy --resource-group "$RESOURCE_GROUP" --name "$APP_NAME" --src-path "$ZIP_FILE" --type zip
-
-# Set the startup command explicitly
-echo "Setting startup command..."
+# 6. Configure Azure App Service
+# Set the startup command explicitly to ensure our script runs
+echo "---> Configuring Azure startup command..."
 az webapp config set --resource-group "$RESOURCE_GROUP" --name "$APP_NAME" --startup-file "startup.sh"
 
-echo "Deployment complete. Your app should be available at: https://$APP_NAME.azurewebsites.net"
-echo "To see logs, run: az webapp log tail --resource-group $RESOURCE_GROUP --name $APP_NAME"
-echo "WAIT AT LEAST 1 MINUTE before testing comments to allow site to fully start up" 
+# 7. Completion Message
+echo "---> Deployment to Azure complete!"
+echo "Your app should be available shortly at: https://$APP_NAME.azurewebsites.net"
+echo "To monitor logs, run: az webapp log tail --resource-group $RESOURCE_GROUP --name $APP_NAME"
+echo "(Allow 1-2 minutes for the app to fully start after deployment before testing)"
+
+# --- Script End --- 

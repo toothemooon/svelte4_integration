@@ -25,20 +25,19 @@ old_svelte/
 │   │   │   ├── Footer.svelte  # Simple footer with credits
 │   │   │   └── About.svelte   # About page
 │   │   ├── App.svelte       # Main application component with routing
-│   │   └── main.js          # Entry point
+│   │   └── main.js          # Entry point (updated to remove unused props)
 │   ├── package.json         # NPM dependencies and scripts
 │   └── rollup.config.js     # Rollup bundler configuration
 │
 ├── backend/                 # Flask backend application
 │   ├── app.py               # Main Flask application
 │   ├── schema.sql           # SQL schema for database (users and comments)
-│   ├── init_db.py           # Script to initialize the database
+│   ├── init_db.py           # Script to initialize/reset the local database
 │   ├── requirements.txt     # Python dependencies
-│   ├── database.db          # SQLite database file
+│   ├── database.db          # Local SQLite database file
 │   └── deploy/              # Deployment scripts and configurations
-│       ├── deploy-to-azure.sh  # Script to deploy backend to Azure
-│       ├── startup.sh       # Azure startup script
-│       └── web.config       # Azure web server configuration
+│       ├── deploy-to-azure.sh  # Script to deploy backend to Azure (persistent DB)
+│       └── debug_azure.py   # Optional script to debug Azure DB issues
 │
 └── README.md                # This documentation file
 ```
@@ -58,12 +57,13 @@ pip install -r requirements.txt
 ```
 
 3. Initialize the database with sample data:
-```
+```bash
 python init_db.py
 ```
+**Note:** Run this command only once initially, or when you want to completely reset the *local* database. For subsequent local runs, just start the app (step 4).
 
 4. Run the Flask application:
-```
+```bash
 python app.py
 ```
 
@@ -225,11 +225,9 @@ These fallbacks provide a more resilient user experience when working with a dis
 
 - **database.db**: The SQLite database file that stores the data.
 
-- **deploy/deploy-to-azure.sh**: Script for deploying the backend to Azure App Service.
+- **deploy/deploy-to-azure.sh**: The primary script for deploying the backend to Azure App Service. It packages the application, handles dependencies, and configures Azure for persistent database storage.
 
-- **deploy/startup.sh**: Script that Azure App Service runs to start the application.
-
-- **deploy/web.config**: Configuration file for Azure's web server (IIS).
+- **deploy/debug_azure.py**: An optional utility script to help diagnose database persistence issues directly on the Azure App Service environment if needed.
 
 ## API Endpoints
 
