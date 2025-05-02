@@ -25,10 +25,17 @@ def initialize_database():
         
         # Add some sample data
         db = get_db()
-        # Insert sample users - REMOVED
-        # db.execute('INSERT OR IGNORE INTO users (username, email) VALUES (?, ?)', ('user1', 'user1@example.com'))
-        # db.execute('INSERT OR IGNORE INTO users (username, email) VALUES (?, ?)', ('user2', 'user2@example.com'))
-        # db.execute('INSERT OR IGNORE INTO users (username, email) VALUES (?, ?)', ('user3', 'user3@example.com'))
+        
+        # Insert sample posts
+        sample_posts = [
+            ('Welcome to the Blog', 'This is the first post on our blog. Feel free to leave comments!', 1),
+            ('Getting Started with Svelte', 'Svelte is a modern JavaScript framework for building user interfaces.', 1),
+            ('Flask Backend Setup', 'Learn how to set up a Flask backend for your Svelte application.', 1)
+        ]
+        
+        for title, content, user_id in sample_posts:
+            db.execute('INSERT INTO posts (title, content, user_id) VALUES (?, ?, ?)', 
+                      (title, content, user_id))
         
         # Insert sample comments for different posts
         db.execute('INSERT INTO comments (post_id, content) VALUES (?, ?)', (1, 'Feel free to leave your comments here!',))
@@ -48,7 +55,7 @@ def initialize_database():
         except Exception as e:
             print(f"Error creating admin user: {e}")
         
-    print("Database initialized successfully with sample data.")
+        print("Database initialized with sample data.")
 
 if __name__ == "__main__":
     initialize_database() 

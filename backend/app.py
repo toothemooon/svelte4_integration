@@ -23,6 +23,7 @@ except ImportError:
         raise ImportError("JWT module could not be imported. Please install with: pip install PyJWT")
 from datetime import datetime, timedelta # For JWT expiration
 from functools import wraps # For creating decorators
+import sys # For sys.path
 
 # Create a new Flask application
 app = Flask(__name__)
@@ -255,6 +256,69 @@ def get_users():
         users.append(user_dict)
     
     return jsonify(users)
+
+'''
+Debug endpoint to check database tables and configuration.
+'''
+@app.route('/api/debug/database', methods=['GET'])
+def debug_database():
+    # Database connection check
+    conn = get_db()
+    
+    # Check tables
+    cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+    tables = [row['name'] for row in cursor.fetchall()]
+    
+    # Collect table statistics
+    table_stats = {}
+    for table_name in tables:
+        try:
+            cursor = conn.execute(f"SELECT COUNT(*) as count FROM {table_name}")
+            count = cursor.fetchone()['count']
+            
+            # Get columns for this table
+            cursor = conn.execute(f"PRAGMA table_info({table_name})")
+            columns = [col['name'] for col in cursor.fetchall()]
+            
+            table_stats[table_name] = {
+                'count': count,
+                'columns': columns
+            }
+            
+            # If it's the posts table, get a sample row
+            if table_name == 'posts' and count > 0:
+                cursor = conn.execute(f"SELECT * FROM {table_name} LIMIT 1")
+                sample = dict(cursor.fetchone())
+                table_stats[table_name]['sample'] = {k: str(v) for k, v in sample.items()}
+        except Exception as e:
+            table_stats[table_name] = {'error': str(e)}
+    
+    # Check Flask app configuration and routes
+    routes = []
+    for rule in app.url_map.iter_rules():
+        routes.append({
+            'endpoint': rule.endpoint,
+            'methods': list(rule.methods),
+            'path': str(rule)
+        })
+    
+    # Collect debug information
+    debug_info = {
+        'database_path': DATABASE,
+        'tables': tables,
+        'table_stats': table_stats,
+        'app_routes': routes,
+        'environment': {
+            'flask_env': os.environ.get('FLASK_ENV'),
+            'database_dir': os.environ.get('DATABASE_DIR'),
+            'flask_app': os.environ.get('FLASK_APP'),
+            'flask_debug': os.environ.get('FLASK_DEBUG'),
+            'working_directory': os.getcwd(),
+            'python_path': sys.path
+        }
+    }
+    
+    return jsonify(debug_info)
 
 '''
 Get all posts from the database.
