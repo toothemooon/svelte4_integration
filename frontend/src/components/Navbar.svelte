@@ -1,6 +1,8 @@
 <script>
 	// Import the push function from svelte-spa-router to handle navigation programmatically
-	import { push } from 'svelte-spa-router';
+	import { push, link } from 'svelte-spa-router';
+	import { isLoggedIn, logout, userRole } from '../authStore.js'; // Import store and actions
+	import { onMount } from 'svelte';
 	
 	// This prop receives the current path from the parent component (App.svelte)
 	// It's used to highlight the active navigation link
@@ -14,6 +16,15 @@
 		// Navigate to the specified path using the router
 		push(path);
 	}
+	
+	// Debug: Log when role changes
+	onMount(() => {
+		const unsubscribe = userRole.subscribe(role => {
+			console.log('Current user role in Navbar:', role);
+		});
+		
+		return unsubscribe;
+	});
 </script>
 
 <!-- Main navigation component -->
@@ -22,22 +33,25 @@
 		<!-- Logo section on the left side -->
 		<div class="logo">
 			<!-- Logo link with click handler to navigate to home -->
-			<!-- on:click|preventDefault prevents default behavior and calls our custom navigate function -->
-			<a href="/" on:click|preventDefault={(e) => navigate('/', e)}>My Blog</a>
+			<a href="/" use:link class="brand">My Blog</a>
 		</div>
 		
 		<!-- Navigation links on the right side -->
-		<ul class="nav-links">
-			<!-- Each list item represents a navigation link -->
-			<!-- class:active={} is a special Svelte directive that conditionally adds the 'active' class -->
-			<!-- when the condition is true, highlighting the current page -->
-			<li class:active={currentPath === '/'}>
-				<a href="/" on:click|preventDefault={(e) => navigate('/', e)}>Home</a>
-			</li>
-			<li class:active={currentPath === '/about'}>
-				<a href="/about" on:click|preventDefault={(e) => navigate('/about', e)}>About</a>
-			</li>
-		</ul>
+		<div class="nav-section">
+			<a href="/" use:link class="nav-link" class:active={currentPath === '/'}>Home</a>
+			<a href="/about" use:link class="nav-link" class:active={currentPath === '/about'}>About</a>
+			{#if $isLoggedIn}
+				<!-- Debug: Show current role -->
+				<span class="nav-link" style="color: grey;">Role: {$userRole || 'none'}</span>
+				
+				{#if $userRole === 'admin'}
+					<a href="/create-post" use:link class="nav-link">Create Post</a>
+				{/if}
+				<button on:click={logout} class="nav-link logout-btn">Logout</button>
+			{:else}
+				<a href="/auth" use:link class="nav-link login-btn">Login</a>
+			{/if}
+		</div>
 	</div>
 </nav>
 
@@ -52,11 +66,11 @@
 
 	/* Container to center and limit the width of navbar content */
 	.navbar-container {
-		display: flex; /* Use flexbox for layout */
-		justify-content: space-between; /* Put logo on left, links on right */
-		align-items: center; /* Center items vertically */
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
 		max-width: 1200px;
-		margin: 0 auto; /* Center the container horizontally */
+		margin: 0 auto;
 		height: 60px;
 	}
 
@@ -68,55 +82,79 @@
 		text-decoration: none;
 	}
 
-	/* Make the navigation links display in a row */
-	.nav-links {
+	/* Right side navigation section */
+	.nav-section {
 		display: flex;
-		list-style: none;
-		margin: 0;
-		padding: 0;
+		align-items: center;
 	}
 
-	/* Add spacing between navigation links */
-	.nav-links li {
-		margin-left: 1.5rem;
-	}
-
-	/* Style the navigation link text */
-	.nav-links a {
-		color: #ccc; /* Light gray for non-active links */
+	/* Common styling for all navigation items */
+	.nav-link {
+		color: #ccc;
 		text-decoration: none;
+		padding: 0.5rem 0.75rem;
+		margin: 0 0.25rem;
 		font-size: 1rem;
-		transition: color 0.3s; /* Smooth color transition on hover */
+		cursor: pointer;
+		transition: color 0.3s;
+		background: none;
+		border: none;
+		font-family: inherit;
 	}
 
-	/* Change link color on hover for better user feedback */
-	.nav-links a:hover {
+	/* Active and hover states */
+	.active, .nav-link:hover {
 		color: white;
 	}
-
-	/* Style for the currently active page link */
-	.active a {
+	
+	/* Logout button styling */
+	.logout-btn {
+		border: 1px solid #e74c3c;
+		color: #e74c3c;
+		border-radius: 4px;
+		margin-left: 0.5rem;
+	}
+	
+	.logout-btn:hover {
+		background-color: #e74c3c;
 		color: white;
-		font-weight: 600;
+	}
+	
+	/* Login button styling */
+	.login-btn {
+		background-color: #4a90e2;
+		color: white;
+		border-radius: 4px;
+		margin-left: 0.5rem;
+	}
+	
+	.login-btn:hover {
+		background-color: #357abD;
 	}
 
 	/* Responsive design for mobile screens */
-	@media (max-width: 600px) {
-		/* Stack the logo and links vertically on small screens */
+	@media (max-width: 768px) {
+		/* Stack the elements vertically on small screens */
 		.navbar-container {
 			flex-direction: column;
 			height: auto;
 			padding: 1rem 0;
 		}
 
-		/* Add space above the links when they're below the logo */
-		.nav-links {
+		.nav-section {
+			flex-wrap: wrap;
+			justify-content: center;
 			margin-top: 1rem;
 		}
 
-		/* Adjust spacing for horizontally arranged links on mobile */
-		.nav-links li {
-			margin: 0 0.75rem;
+		.nav-link {
+			margin: 0.25rem;
+		}
+		
+		.logout-btn, .login-btn {
+			margin-left: 0.25rem;
 		}
 	}
 </style> 
+
+

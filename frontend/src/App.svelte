@@ -1,6 +1,6 @@
 <script>
 	// Import the Router component for handling client-side routing
-	import Router from 'svelte-spa-router';
+	import Router from "svelte-spa-router";
 	// Import the location store which tracks the current URL path
 	import { location } from 'svelte-spa-router';
 	
@@ -10,13 +10,18 @@
 	import Home from './components/Home.svelte';
 	import Post from './components/Post.svelte';
 	import About from './components/About.svelte';
+	import CreatePost from './components/CreatePost.svelte';
+	import Auth from './components/Auth.svelte';
 	
 	// Define routes for the SPA router
 	// This maps URL paths to their corresponding components
 	const routes = {
 		'/': Home,        // Home page at root URL
 		'/post/:id': Post,  // Post detail page with ID parameter
-		'/about': About   // About page
+		'/about': About,   // About page
+		'/create-post': CreatePost,
+		'/auth': Auth,
+		'*': Home
 	};
 </script>
 

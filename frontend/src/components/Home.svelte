@@ -26,36 +26,32 @@
     
     // Fetch blog posts when component mounts
     onMount(async () => {
+        loading = true;
+        error = null;
         try {
-            // Fallback to sample data if the API call fails
-            // Simulate posts from database
-            posts = [
-                {
-                    id: 1,
-                    title: "Getting Started with My First Blog",
-                    excerpt: "Learning the basics of how to build my blog web app.",
-                    date: "2025-05-01"
-                },
-                {
-                    id: 2,
-                    title: "Structuring of Each Component of My Blog",
-                    excerpt: "Understand how to set up reusable components.",
-                    date: "2025-05-06"
-                },
-                {
-                    id: 3,
-                    title: "Sharing Experiences of Cloud Solutions Deployment",
-                    excerpt: "Implement a cloud-based blog web application.",
-                    date: "2025-05-07"
-                }
-            ];
+            const response = await fetch(`${API_URL}/api/posts`);
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+            posts = await response.json();
+            
+            // Optional: Format timestamp for display here if needed
+            // posts = posts.map(post => ({ ...post, formattedDate: new Date(post.timestamp).toLocaleDateString() }));
+
         } catch (err) {
             error = "Failed to load posts";
-            console.error(err);
+            console.error('Error fetching posts:', err);
+            // Keep existing hardcoded data as fallback? Or show error only.
+            // posts = [ /* ... original hardcoded posts ... */ ]; 
         } finally {
             loading = false;
         }
     });
+
+    // Function to format timestamp (if not done in onMount)
+    function formatDate(dateString) {
+        return new Date(dateString).toLocaleDateString();
+    }
 </script>
 
 <!-- Home page content that is displayed when this route is active -->
@@ -75,7 +71,7 @@
             <div class="empty-state">No posts available yet.</div>
         {:else}
             <ul class="posts-list">
-                {#each posts as post}
+                {#each posts as post (post.id)}
                     <li class="post-item">
                         <div 
                             class="post-card" 
@@ -86,9 +82,9 @@
                             aria-label="Read post: {post.title}"
                         >
                             <h2>{post.title}</h2>
-                            <p class="post-excerpt">{post.excerpt || post.content}</p>
+                            <p class="post-excerpt">{post.excerpt || 'No excerpt available.'}</p>
                             <div class="post-footer">
-                                <span class="post-date">{post.date}</span>
+                                <span class="post-date">{formatDate(post.timestamp)}</span>
                                 <span class="read-more">Read more →</span>
                             </div>
                         </div>

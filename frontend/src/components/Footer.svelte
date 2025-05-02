@@ -8,7 +8,7 @@
         <!-- Credits -->
         <div class="credits">
             <p>Made by サラダ &copy; {currentYear}</p>
-            <p class="version">v0.1.4</p>
+            <p class="version">v0.2.7</p>
         </div>
     </div>
 </footer>

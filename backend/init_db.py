@@ -38,6 +38,16 @@ def initialize_database():
         
         db.commit()
         
+        # Ensure admin user exists
+        try:
+            from scripts.admin_scripts.ensure_admin import ensure_admin_exists
+            ensure_admin_exists()
+            print("Admin user has been created or verified.")
+        except ImportError:
+            print("Admin scripts not found - skipping admin user creation")
+        except Exception as e:
+            print(f"Error creating admin user: {e}")
+        
     print("Database initialized successfully with sample data.")
 
 if __name__ == "__main__":

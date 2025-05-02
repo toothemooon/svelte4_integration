@@ -19,3 +19,6 @@ __pycache__/
 .vscode/
 .idea/
 
+# Admin scripts (for security)
+scripts/admin_scripts/
+

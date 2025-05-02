@@ -4,9 +4,11 @@ Database utilities for testing
 import os
 import sys
 import sqlite3
+from werkzeug.security import generate_password_hash
 
-# Add the parent directory to the path so we can import app
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Add the backend directory to the path so we can import app
+backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.append(backend_dir)
 from app import app, init_db, get_db
 
 def create_test_db(db_path=None):
@@ -31,11 +33,20 @@ def create_test_db(db_path=None):
         # Get database connection
         db = get_db()
         
-        # Insert sample users
-        db.execute('INSERT OR IGNORE INTO users (username, email) VALUES (?, ?)', 
-                  ('test_user1', 'testuser1@example.com'))
-        db.execute('INSERT OR IGNORE INTO users (username, email) VALUES (?, ?)', 
-                  ('test_user2', 'testuser2@example.com'))
+        # Insert sample users with hashed passwords
+        password1 = generate_password_hash('password1', method='pbkdf2:sha256')
+        password2 = generate_password_hash('password2', method='pbkdf2:sha256')
+        
+        db.execute('INSERT OR IGNORE INTO users (username, password_hash, role) VALUES (?, ?, ?)', 
+                  ('test_user1', password1, 'admin'))
+        db.execute('INSERT OR IGNORE INTO users (username, password_hash, role) VALUES (?, ?, ?)', 
+                  ('test_user2', password2, 'user'))
+        
+        # Insert sample posts
+        db.execute('INSERT INTO posts (title, content, user_id) VALUES (?, ?, ?)', 
+                  ('Test Post 1', 'This is the content of test post 1', 1))
+        db.execute('INSERT INTO posts (title, content, user_id) VALUES (?, ?, ?)', 
+                  ('Test Post 2', 'This is the content of test post 2', 2))
         
         # Insert sample comments for different posts
         db.execute('INSERT INTO comments (post_id, content) VALUES (?, ?)', 
