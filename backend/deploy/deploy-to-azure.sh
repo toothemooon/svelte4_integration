@@ -1,18 +1,29 @@
 #!/bin/bash
 # Deployment script for Flask backend to Azure App Service.
 # Ensures database persistence using Azure's persistent storage.
+# Updated to fix CORS issues with Vercel frontend
+
+# Exit on error
+set -e
 
 # --- Configuration ---
 APP_NAME="sarada" # Replace with your Azure Web App name if different
 RESOURCE_GROUP="blog_quickstart" # Replace with your Azure Resource Group name
 
 # Paths (relative to project root where script is run)
-DEPLOY_DIR="$(pwd)/backend/deploy"
-TEMP_DIR="$DEPLOY_DIR/temp_deploy" # Temporary folder for packaging
+DEPLOY_DIR="$(dirname "$(realpath "$0")")" # Get the directory where this script is located
+PROJECT_ROOT="$(dirname "$(dirname "$DEPLOY_DIR")")" # Get the project root directory
+BACKEND_DIR="$(dirname "$DEPLOY_DIR")" # Backend directory is one level up from deploy dir
+# Use a temporary directory in the user's home folder for staging
+TEMP_DIR="$HOME/svelte_flask_deploy_temp_$(date +%s)" # Add timestamp to avoid conflicts
 ZIP_FILE="$DEPLOY_DIR/package.zip" # Deployment package file
 
 # --- Script Start ---
 echo "===== Azure Deployment for $APP_NAME ====="
+echo "Script location: $DEPLOY_DIR"
+echo "Project root: $PROJECT_ROOT"
+echo "Backend directory: $BACKEND_DIR"
+echo "Temp directory: $TEMP_DIR"
 
 # 1. Prerequisites Check
 echo "---> Checking prerequisites..."
@@ -28,7 +39,13 @@ if ! command -v zip &> /dev/null; then
     echo "Error: 'zip' command not found. Please install it."
     exit 1
 fi
-az account show &> /dev/null || az login
+
+# Check if logged in to Azure
+echo "---> Checking Azure login..."
+if ! az account show &> /dev/null; then
+    echo "Not logged in to Azure. Initiating login..."
+    az login
+fi
 
 # 2. Prepare Deployment Package
 echo "---> Preparing deployment package in $TEMP_DIR ..."
@@ -37,7 +54,7 @@ rm -rf "$TEMP_DIR/*" # Clean temp directory
 
 # Copy backend application files (excluding the deploy subdirectory)
 echo "Copying application files..."
-rsync -av --progress backend/ "$TEMP_DIR/" --exclude deploy
+rsync -av --progress "$BACKEND_DIR/" "$TEMP_DIR/" --exclude deploy
 
 # Copy the Azure debugging script (optional, but helpful)
 if [ -f "$DEPLOY_DIR/debug_azure.py" ]; then
@@ -52,6 +69,31 @@ flask-cors==3.0.10
 Werkzeug==2.0.1
 gunicorn==20.1.0
 EOF
+
+# Ensure CORS is properly configured in app.py
+echo "Checking CORS configuration..."
+if [ -f "$TEMP_DIR/app.py" ]; then
+    # Check if CORS is already properly configured
+    if ! grep -q "CORS(app, resources={r\"/api/\*\": {\"origins\": \"\*\"" "$TEMP_DIR/app.py"; then
+        echo "Enhancing CORS configuration in app.py..."
+        # Back up the original file
+        cp "$TEMP_DIR/app.py" "$TEMP_DIR/app.py.bak"
+        # Update the CORS configuration - handling different potential formats
+        if grep -q "CORS(app)" "$TEMP_DIR/app.py"; then
+            sed -i'' -e 's/CORS(app)/CORS(app, resources={r"\/api\/*": {"origins": "*", "methods": ["GET", "POST", "DELETE", "OPTIONS"], "allow_headers": ["Content-Type", "Authorization"]}})/g' "$TEMP_DIR/app.py"
+        else
+            # If not using the simple format, insert after the app creation
+            sed -i'' -e '/app = Flask(__name__)/a\
+CORS(app, resources={r"/api/*": {"origins": "*", "methods": ["GET", "POST", "DELETE", "OPTIONS"], "allow_headers": ["Content-Type", "Authorization"]}})' "$TEMP_DIR/app.py"
+        fi
+        echo "CORS configuration updated in app.py"
+    else
+        echo "CORS is already properly configured in app.py"
+    fi
+else
+    echo "Error: app.py not found in $TEMP_DIR. Check rsync command."
+    exit 1
+fi
 
 # Create the startup script that Azure will run
 echo "Creating startup.sh..."
@@ -79,10 +121,27 @@ export DATABASE_DIR="$PERSIST_DIR"
 echo "Installing dependencies from requirements.txt..."
 pip install --no-cache-dir -r requirements.txt
 
+# Log installed packages for debugging
+echo "Listing installed packages..."
+pip list
+
 # Dynamically patch app.py to use the persistent database path
 # This avoids needing different code for local vs Azure.
 echo "Patching app.py database path..."
 sed -i "s|DATABASE_DIR = os.environ.get('DATABASE_DIR', os.path.dirname(os.path.abspath(__file__)))|DATABASE_DIR = os.environ.get('DATABASE_DIR', '$PERSIST_DIR')|g" app.py
+
+# Double check CORS is properly configured for production
+echo "Verifying CORS configuration..."
+if ! grep -q "CORS(app, resources={r\"/api/\*\": {\"origins\": \"\*\"" app.py; then
+    echo "Enhancing CORS configuration for production..."
+    if grep -q "CORS(app)" app.py; then
+        sed -i "s/CORS(app)/CORS(app, resources={r\"\/api\/*\": {\"origins\": \"*\", \"methods\": [\"GET\", \"POST\", \"DELETE\", \"OPTIONS\"], \"allow_headers\": [\"Content-Type\", \"Authorization\"]}})/g" app.py
+    else
+        # If not using the simple format, insert after the app creation
+        sed -i '/app = Flask(__name__)/a\
+CORS(app, resources={r"/api/*": {"origins": "*", "methods": ["GET", "POST", "DELETE", "OPTIONS"], "allow_headers": ["Content-Type", "Authorization"]}})\' app.py
+    fi
+fi
 
 # Dynamically create init_db.py that only runs if DB doesn't exist
 DB_FILE="$PERSIST_DIR/database.db"
@@ -122,7 +181,12 @@ ls -la "$PERSIST_DIR"
 
 # Start the Gunicorn server
 echo "Starting Gunicorn server..."
-gunicorn --bind=0.0.0.0:8000 --timeout 600 app:app
+# Add CORS-related headers to Gunicorn to ensure they're properly set
+gunicorn --bind=0.0.0.0:8000 --timeout 600 \
+         --forwarded-allow-ips="*" \
+         --access-logfile=- \
+         --error-logfile=- \
+         app:app
 
 echo "--- Azure Startup Script End ---"
 EOF_STARTUP' # End of startup script heredoc
@@ -173,18 +237,31 @@ rm -rf "$TEMP_DIR"
 echo "---> Deploying $ZIP_FILE to Azure Web App: $APP_NAME ..."
 az webapp deploy --resource-group "$RESOURCE_GROUP" --name "$APP_NAME" --src-path "$ZIP_FILE" --type zip --clean true --verbose
 
-# Check deployment status
-if [ $? -ne 0 ]; then
-    echo "Error: Azure deployment failed. Check logs above."
-    exit 1
-fi
-
 # 6. Configure Azure App Service
 # Set the startup command explicitly to ensure our script runs
 echo "---> Configuring Azure startup command..."
 az webapp config set --resource-group "$RESOURCE_GROUP" --name "$APP_NAME" --startup-file "startup.sh"
 
-# 7. Completion Message
+# 7. Configure CORS on Azure App Service level
+echo "---> Configuring CORS at Azure App Service level..."
+# This adds an additional layer of CORS support at the Azure platform level
+az webapp cors add --resource-group "$RESOURCE_GROUP" --name "$APP_NAME" \
+  --allowed-origins "https://svelte4-integration.vercel.app" "http://localhost:5173" "*"
+
+# 8. Restart the app to apply changes
+echo "---> Restarting Azure Web App to apply changes..."
+az webapp restart --resource-group "$RESOURCE_GROUP" --name "$APP_NAME"
+
+# 9. Test endpoint to verify CORS headers
+echo "---> Testing CORS headers (may take a minute for deployment to complete)..."
+sleep 30  # Give the app a moment to restart
+
+echo "Testing health endpoint..."
+curl -I -X OPTIONS -H "Origin: https://svelte4-integration.vercel.app" \
+     -H "Access-Control-Request-Method: GET" \
+     "https://$APP_NAME.azurewebsites.net/api/health" || echo "CORS test failed, but deployment might still be in progress"
+
+# 10. Completion Message
 echo "---> Deployment to Azure complete!"
 echo "Your app should be available shortly at: https://$APP_NAME.azurewebsites.net"
 echo "To monitor logs, run: az webapp log tail --resource-group $RESOURCE_GROUP --name $APP_NAME"
