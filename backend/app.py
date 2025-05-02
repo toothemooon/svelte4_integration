@@ -160,57 +160,6 @@ def token_required(f):
 
     return decorated
 
-'''
-Decorator to protect routes that require admin privileges.
-
-This decorator first authenticates the user and then checks if they have
-the 'admin' role before allowing access to the protected route.
-
-Returns:
-    function: The decorated function with admin authorization
-'''
-def admin_required(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        # First, authenticate the user (reuse token_required logic)
-        token = None
-        if 'Authorization' in request.headers:
-            auth_header = request.headers['Authorization']
-            try:
-                token = auth_header.split(" ")[1]
-            except IndexError:
-                return jsonify({'message': 'Bearer token malformed'}), 401
-
-        if not token:
-            return jsonify({'message': 'Token is missing!'}), 401
-
-        try:
-            # Decode the token using the secret key
-            data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=["HS256"])
-            # Find the user based on the token data (e.g., user_id)
-            db = get_db()
-            cursor = db.execute('SELECT * FROM users WHERE id = ?', (data['user_id'],))
-            current_user = cursor.fetchone()
-            if not current_user:
-                 return jsonify({'message': 'User not found'}), 401
-                 
-            # Check if user has admin role
-            if current_user['role'] != 'admin':
-                return jsonify({'message': 'Admin privileges required'}), 403
-                
-        except jwt.ExpiredSignatureError:
-            return jsonify({'message': 'Token has expired!'}), 401
-        except jwt.InvalidTokenError:
-            return jsonify({'message': 'Token is invalid!'}), 401
-        except Exception as e:
-            print(f"Token validation error: {e}") # Log the error
-            return jsonify({'message': 'Token validation failed'}), 401
-
-        # Pass the current user information to the decorated function
-        return f(current_user, *args, **kwargs)
-
-    return decorated
-
 # API Routes
 
 '''
@@ -431,7 +380,7 @@ def get_or_delete_post(post_id):
     if request.method == 'GET':
         return get_post_by_id(post_id)
     elif request.method == 'DELETE':
-        # Check for admin privileges
+        # Check for authentication
         token = None
         if 'Authorization' in request.headers:
             auth_header = request.headers['Authorization']
@@ -452,15 +401,11 @@ def get_or_delete_post(post_id):
             current_user = cursor.fetchone()
             if not current_user:
                  return jsonify({'message': 'User not found'}), 401
-                 
-            # Check if user has admin role
-            if current_user['role'] != 'admin':
-                return jsonify({'message': 'Admin privileges required'}), 403
                 
         except Exception as e:
             return jsonify({'message': f'Authentication error: {str(e)}'}), 401
 
-        # User is admin, proceed with deletion
+        # User is authenticated, proceed with deletion
         return delete_post(current_user, post_id)
 
 def get_post_by_id(post_id):
@@ -615,28 +560,21 @@ def login():
     if not user or not check_password_hash(user['password_hash'], password):
         return jsonify({'message': 'Invalid username or password'}), 401
     
-    # Print debug information
-    print(f"User found: {user['username']}, Role: {user['role']}")
-    
     # Generate JWT token
     token_payload = {
         'user_id': user['id'],
         'username': user['username'],
-        'role': user['role'],  # Include role in token
         'exp': datetime.utcnow() + timedelta(hours=24)  # Token expires in 24 hours
     }
     
-    print(f"Token payload: {token_payload}")
-    
     token = jwt.encode(token_payload, app.config['SECRET_KEY'], algorithm="HS256")
     
-    # Return token with role information directly in the response
+    # Return token with user information
     return jsonify({
         'token': token,
         'user': {
             'id': user['id'],
-            'username': user['username'],
-            'role': user['role']
+            'username': user['username']
         }
     })
 
@@ -644,10 +582,10 @@ def login():
 Add a new blog post (Protected Route).
 
 This endpoint receives post data (title, content) and adds it to the posts table.
-Requires admin role.
+Requires authentication.
 '''
 @app.route('/api/posts', methods=['POST'])
-@admin_required # Changed from @token_required to @admin_required
+@token_required
 def add_post(current_user):
     # current_user is passed from the decorator
     request_data = request.get_json()
@@ -692,8 +630,7 @@ Edit an existing blog post (Protected Route).
 Args:
     post_id (int): ID of the post to edit
 
-This route allows users to edit their own posts. Users with admin role
-can edit any post.
+This route allows users to edit their own posts.
 
 Returns:
     flask.Response: JSON with updated post data
@@ -711,11 +648,8 @@ def edit_post(current_user, post_id):
     if not post:
         return jsonify({'message': 'Post not found'}), 404
     
-    # Check if user is the owner or an admin
-    is_owner = post['user_id'] == current_user['id']
-    is_admin = current_user['role'] == 'admin'
-    
-    if not (is_owner or is_admin):
+    # Check if user is the owner
+    if post['user_id'] != current_user['id']:
         return jsonify({'message': 'Not authorized to edit this post'}), 403
     
     # Get request data
@@ -748,16 +682,6 @@ def edit_post(current_user, post_id):
     
     return jsonify(post_data), 200
 
-'''
-Delete an existing blog post (Admin only).
-
-Args:
-    current_user: The admin user performing the deletion
-    post_id (int): ID of the post to delete
-
-Returns:
-    flask.Response: JSON response confirming the deletion
-'''
 def delete_post(current_user, post_id):
     # Get database connection
     db = get_db()
@@ -769,50 +693,15 @@ def delete_post(current_user, post_id):
     if not post:
         return jsonify({'message': 'Post not found'}), 404
     
-    try:
-        # Delete the post
-        db.execute('DELETE FROM posts WHERE id = ?', (post_id,))
-        
-        # Also delete any comments associated with the post
-        db.execute('DELETE FROM comments WHERE post_id = ?', (post_id,))
-        
-        db.commit()
-        return jsonify({'message': f'Post {post_id} deleted successfully'}), 200
-    except Exception as e:
-        db.rollback()
-        print(f"Error deleting post: {e}")
-        return jsonify({'message': 'Failed to delete post'}), 500
-
-# ------ Admin Routes ------
-
-'''
-Admin-only endpoint to get detailed user information.
-
-Requires admin role to access. Returns detailed information about all users.
-
-Returns:
-    flask.Response: JSON response with detailed user information
-'''
-@app.route('/api/admin/users', methods=['GET'])
-@admin_required
-def admin_get_users(current_user):
-    db = get_db()
-    cursor = db.execute('SELECT id, username, role, timestamp FROM users')
+    # Check if user is the owner
+    if post['user_id'] != current_user['id']:
+        return jsonify({'message': 'Not authorized to delete this post'}), 403
     
-    # Convert rows to dictionaries with detailed information
-    users = []
-    for row in cursor.fetchall():
-        user_dict = dict(id=row['id'], username=row['username'], 
-                        role=row['role'], timestamp=row['timestamp'])
-        
-        # Get post count for each user
-        post_cursor = db.execute('SELECT COUNT(*) as post_count FROM posts WHERE user_id = ?', (row['id'],))
-        post_count = post_cursor.fetchone()['post_count']
-        user_dict['post_count'] = post_count
-        
-        users.append(user_dict)
+    # Delete the post
+    db.execute('DELETE FROM posts WHERE id = ?', (post_id,))
+    db.commit()
     
-    return jsonify(users)
+    return jsonify({'message': 'Post deleted successfully'}), 200
 
 # Start the Flask application when run directly
 if __name__ == '__main__':
