@@ -264,20 +264,94 @@ Returns:
 '''
 @app.route('/api/posts', methods=['GET'])
 def get_posts():
-    app.logger.info("Attempting to fetch posts from /api/posts") # Add logging
+    """Get all posts from the database, including user data."""
+    # Add debugging logs
+    app.logger.debug("Entering /api/posts endpoint")
+    
     try:
-        db = get_db()
-        cursor = db.execute(
-            'SELECT p.id, p.title, p.content, p.timestamp, u.username ' 
-            'FROM posts p JOIN users u ON p.user_id = u.id ORDER BY p.timestamp DESC'
-        )
-        posts = cursor.fetchall()
-        app.logger.info(f"Found {len(posts)} posts") # Log success
-        # Convert rows to dictionaries
-        return jsonify([dict(ix) for ix in posts])
+        # Get database connection
+        conn = get_db()
+        
+        # Log database connection
+        app.logger.debug(f"Database connection established: {conn}")
+        
+        # Join posts with users table to get the username
+        try:
+            # More clear query with explicit column selection
+            query = """
+            SELECT 
+                posts.id, 
+                posts.title, 
+                posts.content, 
+                posts.created, 
+                users.username
+            FROM posts
+            JOIN users ON posts.user_id = users.id
+            ORDER BY posts.created DESC
+            """
+            app.logger.debug(f"Executing SQL query: {query}")
+            
+            # Execute the query
+            posts = conn.execute(query).fetchall()
+            
+            # Log query results
+            app.logger.debug(f"Query returned {len(posts)} posts")
+            
+        except Exception as sql_error:
+            # Log SQL-specific errors
+            app.logger.error(f"SQL error in /api/posts: {str(sql_error)}")
+            
+            # Fallback to simpler query without join if the first one fails
+            app.logger.debug("Attempting fallback query without JOIN")
+            
+            # Simple query just getting posts
+            posts = conn.execute(
+                'SELECT id, title, content, created FROM posts ORDER BY created DESC'
+            ).fetchall()
+            
+            app.logger.debug(f"Fallback query returned {len(posts)} posts")
+        
+        conn.close()
+        
+        # Convert the posts to a list of dictionaries
+        post_list = []
+        for post in posts:
+            # Convert datetime to string for JSON serialization
+            # and format it for display
+            created_date = post['created']
+            if isinstance(created_date, str):
+                # If it's already a string, use it as is
+                formatted_date = created_date
+            else:
+                # Format datetime object
+                formatted_date = created_date.strftime('%B %d, %Y')
+            
+            # Create dictionary with post data
+            post_dict = {
+                'id': post['id'],
+                'title': post['title'],
+                'content': post['content'],
+                'timestamp': post['created'],
+                'formattedDate': formatted_date
+            }
+            
+            # Add username if available (from JOIN query)
+            if 'username' in post.keys():
+                post_dict['username'] = post['username']
+            else:
+                post_dict['username'] = 'Unknown'  # Fallback
+            
+            post_list.append(post_dict)
+        
+        app.logger.debug(f"Returning {len(post_list)} formatted posts")
+        return jsonify(post_list)
+        
     except Exception as e:
-        app.logger.error(f"Error fetching posts: {e}", exc_info=True) # Log error details
-        return jsonify({"error": "Failed to fetch posts", "details": str(e)}), 500
+        # Log any other errors
+        app.logger.error(f"Error in /api/posts endpoint: {str(e)}")
+        
+        # Return an error response
+        return jsonify({'error': str(e)}), 500
 
 '''
 Get a single post by its ID.

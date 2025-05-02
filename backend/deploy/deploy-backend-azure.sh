@@ -19,58 +19,61 @@ BACKEND_DIR="$(realpath "$SCRIPT_DIR/..")"
 PROJECT_ROOT="$(realpath "$BACKEND_DIR/..")"
 # Define the full path for the zip file in the project root
 DEPLOY_ZIP_PATH="$PROJECT_ROOT/$DEPLOY_ZIP_NAME"
-# Define the full path to the startup script in its new location
-STARTUP_SCRIPT_PATH_FULL="$SCRIPT_DIR/$STARTUP_SCRIPT_NAME"
-# Define the path of the startup script relative to the backend dir (for zipping)
-STARTUP_SCRIPT_RELATIVE_PATH="deploy/$STARTUP_SCRIPT_NAME"
-# Construct Azure URL (ensure this matches your Azure app URL format)
-AZURE_INSTANCE_ID="hbegajbsfxekdyex" # Extracted from previous logs/config
-AZURE_REGION="canadacentral-01" # Extracted from previous logs/config
-AZURE_URL="https://$APP_NAME-$AZURE_INSTANCE_ID.$AZURE_REGION.azurewebsites.net"
+# Define the full path to the startup script in the deploy directory
+STARTUP_SCRIPT_PATH="$SCRIPT_DIR/$STARTUP_SCRIPT_NAME"
 
-echo "--- Starting Azure Deployment ---"
-echo "Project Root: $PROJECT_ROOT"
-echo "Backend Directory: $BACKEND_DIR"
-echo "Script Directory: $SCRIPT_DIR"
-echo "Deployment Package: $DEPLOY_ZIP_PATH"
-echo "Startup Script Full Path: $STARTUP_SCRIPT_PATH_FULL"
-echo "Startup Script Relative Path: $STARTUP_SCRIPT_RELATIVE_PATH"
-echo "Target Azure URL: $AZURE_URL"
+# Default to not include database
+INCLUDE_DATABASE=0
 
-# --- Prepare Deployment Package ---
-echo "Creating deployment package..."
+# Display help information
+display_help() {
+    echo "Usage: $0 [options]"
+    echo
+    echo "Options:"
+    echo "  -h, --help           Display this help message"
+    echo "  -d, --include-db     Include the local database in the deployment"
+    echo
+}
 
-# Ensure the startup script is executable
-chmod +x "$STARTUP_SCRIPT_PATH_FULL"
+# Parse command line arguments
+while [ "$1" != "" ]; do
+    case $1 in
+        -h | --help )           display_help
+                                exit 0
+                                ;;
+        -d | --include-db )     INCLUDE_DATABASE=1
+                                ;;
+        * )                     echo "Invalid option: $1"
+                                display_help
+                                exit 1
+    esac
+    shift
+done
 
-# Change to the backend directory to create the zip with correct relative paths
-cd "$BACKEND_DIR"
-
-# Remove previous zip if it exists
-if [ -f "$DEPLOY_ZIP_PATH" ]; then
-    echo "Removing previous deployment package..."
-    rm "$DEPLOY_ZIP_PATH"
+# --- Verify the necessary tools are available ---
+# Check if Azure CLI is installed
+if ! command -v az &> /dev/null; then
+    echo "Error: Azure CLI is not installed or not in your PATH."
+    echo "Please install it by following instructions at: https://docs.microsoft.com/en-us/cli/azure/install-azure-cli"
+    exit 1
 fi
 
-# Create the zip file containing required application files
-# Add files relative to BACKEND_DIR
-zip -r -q "$DEPLOY_ZIP_PATH" \
-    app.py \
-    init_db.py \
-    schema.sql \
-    requirements.txt \
-    scripts/ \
-    "$STARTUP_SCRIPT_RELATIVE_PATH" \
-    -x "*.pyc" "__pycache__/*" ".DS_Store"
+# Check if zip utility is installed
+if ! command -v zip &> /dev/null; then
+    echo "Error: zip utility is not installed or not in your PATH."
+    echo "Please install it using your system's package manager."
+    exit 1
+fi
 
-echo "Deployment package created successfully at $DEPLOY_ZIP_PATH"
-
-# Return to the script directory (where deploy-backend-azure.sh is)
-cd "$SCRIPT_DIR"
-
-# --- Azure Deployment ---
-echo "Verifying Azure login..."
-az account show > /dev/null || (echo "ERROR: Not logged in to Azure. Please run 'az login' first." && exit 1)
+# --- Check Azure Login Status ---
+echo "Checking Azure login status..."
+# Get an account list and check if authenticated
+AZURE_LOGIN_STATUS=$(az account list 2>/dev/null)
+if [ $? -ne 0 ] || [ -z "$AZURE_LOGIN_STATUS" ] || [ "$AZURE_LOGIN_STATUS" = "[]" ]; then
+    echo "You are not logged in to Azure. Please login with:"
+    echo "az login"
+    exit 1
+fi
 echo "Azure login verified."
 
 # Restarting the app before deployment can sometimes help
@@ -81,63 +84,83 @@ sleep 30
 
 echo "Deploying package to Azure App Service: $APP_NAME in $RESOURCE_GROUP..."
 
-# Use 'az webapp deploy' for zip deployment
-# Added --debug for more verbose output if issues occur
-az webapp deploy --resource-group "$RESOURCE_GROUP" --name "$APP_NAME" --src-path "$DEPLOY_ZIP_PATH" --type zip --clean true
+# --- Create temporary directory for deployment artifacts ---
+TEMP_DIR=$(mktemp -d /tmp/azure-deploy-XXXXXX)
+echo "Created temporary directory: $TEMP_DIR"
 
-echo "Deployment command executed. Azure is processing the package."
+# --- Copy necessary files to the temporary directory ---
+echo "Copying files to temporary directory..."
+# Core application files needed for deployment
+cp -r "$BACKEND_DIR/app.py" "$BACKEND_DIR/init_db.py" "$BACKEND_DIR/schema.sql" "$BACKEND_DIR/requirements.txt" "$TEMP_DIR"
 
-# --- Configure Startup Command ---
-echo "Configuring Azure App Service startup command..."
+# Make sure scripts directories exist
+mkdir -p "$TEMP_DIR/scripts/admin_scripts"
+cp -r "$BACKEND_DIR/scripts/admin_scripts/"*.py "$TEMP_DIR/scripts/admin_scripts/"
 
-# Set the startup file to the path *inside the deployed package*
-az webapp config set --resource-group "$RESOURCE_GROUP" --name "$APP_NAME" --startup-file "$STARTUP_SCRIPT_RELATIVE_PATH"
+# Copy the startup script to the temp directory
+cp "$STARTUP_SCRIPT_PATH" "$TEMP_DIR"
 
-echo "Startup command configured."
-echo "Waiting 10 seconds before restarting the app..."
-sleep 10
-
-# --- Restart Web App ---
-echo "Restarting Azure App Service: $APP_NAME to apply changes..."
-
-az webapp restart --resource-group "$RESOURCE_GROUP" --name "$APP_NAME"
-
-echo "Restart command issued."
-
-# --- Post-Deployment Check ---
-HEALTH_CHECK_URL="$AZURE_URL/api/health"
-MAX_RETRIES=5
-RETRY_DELAY=20 # seconds
-
-echo "Waiting up to $(($MAX_RETRIES * $RETRY_DELAY)) seconds for the app to become healthy..."
-
-for ((i=1; i<=$MAX_RETRIES; i++)); do
-    echo "Attempt $i/$MAX_RETRIES: Checking application health at $HEALTH_CHECK_URL ..."
-    # Use curl: --fail -> fail on 4xx/5xx, -s -> silent, -S -> show error, -L -> follow redirects
-    if curl --fail -sSL "$HEALTH_CHECK_URL"; then
-        echo
-        echo "--- Deployment Successful! --- Application is responding at $HEALTH_CHECK_URL."
-        HEALTHY=true
-        break
+# Create database directory if needed
+if [ $INCLUDE_DATABASE -eq 1 ]; then
+    echo "Including local database in deployment package..."
+    
+    # Check if database exists
+    DATABASE_PATH="$BACKEND_DIR/database.db"
+    if [ -f "$DATABASE_PATH" ]; then
+        echo "Found local database at: $DATABASE_PATH"
+        mkdir -p "$TEMP_DIR/data"
+        cp "$DATABASE_PATH" "$TEMP_DIR/data/"
+        echo "Database copied to deployment package data directory."
     else
-        echo "Health check failed. Waiting $RETRY_DELAY seconds before retrying..."
-        sleep $RETRY_DELAY
+        echo "Warning: Local database not found at $DATABASE_PATH. Will create new database on Azure."
     fi
-done
+fi
 
-if [ "$HEALTHY" != true ]; then
-    echo
-    echo "--- Deployment May Have Failed --- Application health check failed after $MAX_RETRIES attempts."
-    echo "Please check the Azure logs for $APP_NAME:"
-    echo "az webapp log tail --resource-group $RESOURCE_GROUP --name $APP_NAME"
-    echo "Streaming logs for the next 60 seconds (press Ctrl+C to stop earlier):"
-    # Timeout might not be available everywhere, but attempt it
-    timeout 60 az webapp log tail --resource-group "$RESOURCE_GROUP" --name "$APP_NAME" || az webapp log tail --resource-group "$RESOURCE_GROUP" --name "$APP_NAME"
+# --- Create the deployment package ---
+echo "Creating deployment package..."
+cd "$TEMP_DIR"
+zip -r "$DEPLOY_ZIP_PATH" * -x "*.pyc" "__pycache__/*"
+
+echo "Deployment package created at: $DEPLOY_ZIP_PATH"
+echo "Package contents:"
+unzip -l "$DEPLOY_ZIP_PATH"
+
+# --- Deploy to Azure using az webapp deploy ---
+echo "Uploading and deploying package to Azure..."
+az webapp deploy --resource-group "$RESOURCE_GROUP" --name "$APP_NAME" --src-path "$DEPLOY_ZIP_PATH" --type zip
+
+if [ $? -ne 0 ]; then
+    echo "Error: Deployment failed"
     exit 1
 fi
 
-# --- Cleanup (Optional) ---
-# echo "Cleaning up deployment package..."
-# rm "$DEPLOY_ZIP_PATH"
+echo "Setting startup command to run the startup script..."
+az webapp config set --resource-group "$RESOURCE_GROUP" --name "$APP_NAME" --startup-file "$STARTUP_SCRIPT_NAME"
 
-echo "--- Azure Deployment Script Finished Successfully ---" 
+# --- Clean Up ---
+echo "Cleaning up temporary deployment artifacts..."
+rm -rf "$TEMP_DIR"
+echo "Temporary directory removed."
+
+# --- Verify deployment ---
+echo "Restarting webapp to apply changes..."
+az webapp restart --resource-group "$RESOURCE_GROUP" --name "$APP_NAME"
+
+echo "Waiting 30 seconds for app to start..."
+sleep 30
+
+echo "Checking health of the deployed application..."
+HEALTH_URL="https://$APP_NAME-hbegajbsfxekdyex.canadacentral-01.azurewebsites.net/api/health"
+HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$HEALTH_URL")
+
+if [ "$HTTP_STATUS" = "200" ]; then
+    echo "Deployment successful! The application is running."
+    echo "Health check URL: $HEALTH_URL"
+    echo "Returned status code: $HTTP_STATUS"
+else
+    echo "Warning: Health check failed with status code: $HTTP_STATUS"
+    echo "The application may still be starting or there might be an issue."
+    echo "Check the logs using: az webapp log tail --name $APP_NAME --resource-group $RESOURCE_GROUP"
+fi
+
+echo "Deployment process completed." 
