@@ -33,16 +33,30 @@
             if (!response.ok) {
                 throw new Error(`HTTP error! Status: ${response.status}`);
             }
-            posts = await response.json();
+            const rawPosts = await response.json();
             
-            // Optional: Format timestamp for display here if needed
-            // posts = posts.map(post => ({ ...post, formattedDate: new Date(post.timestamp).toLocaleDateString() }));
+            // Process the posts to add excerpt if not present
+            posts = rawPosts.map(post => {
+                // Create an excerpt from the content if not already present
+                const excerpt = post.excerpt || 
+                    (post.content && post.content.length > 100 
+                        ? post.content.substring(0, 100) + '...' 
+                        : post.content || 'No excerpt available.');
+                
+                // Format the date
+                const formattedDate = new Date(post.timestamp).toLocaleDateString();
+                
+                // Return enhanced post object
+                return { 
+                    ...post, 
+                    excerpt,
+                    formattedDate
+                };
+            });
 
         } catch (err) {
             error = "Failed to load posts";
             console.error('Error fetching posts:', err);
-            // Keep existing hardcoded data as fallback? Or show error only.
-            // posts = [ /* ... original hardcoded posts ... */ ]; 
         } finally {
             loading = false;
         }
@@ -84,7 +98,7 @@
                             <h2>{post.title}</h2>
                             <p class="post-excerpt">{post.excerpt || 'No excerpt available.'}</p>
                             <div class="post-footer">
-                                <span class="post-date">{formatDate(post.timestamp)}</span>
+                                <span class="post-date">{post.formattedDate}</span>
                                 <span class="read-more">Read more →</span>
                             </div>
                         </div>

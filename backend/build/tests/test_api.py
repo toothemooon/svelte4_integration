@@ -108,7 +108,7 @@ def test_get_posts(client):
         assert 'title' in post
         assert 'content' in post
         assert 'timestamp' in post
-        assert 'excerpt' in post
+        assert 'username' in post  # Check for the username field instead of excerpt
 
 @pytest.mark.api
 def test_get_post(client):

@@ -26,9 +26,25 @@ from functools import wraps # For creating decorators
 
 # Create a new Flask application
 app = Flask(__name__)
-# Configure CORS with explicit settings to ensure all operations work properly
-CORS(app, resources={r"/api/*": {"origins": "*", "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"], 
-                               "allow_headers": ["Content-Type", "Authorization"]}})
+
+# Define allowed origins for CORS
+# Get frontend URL from environment variable or default
+FRONTEND_URL = os.environ.get('FRONTEND_URL', 'https://www.sarada.lol') # Add your Vercel/frontend URL
+ALLOWED_ORIGINS = [
+    FRONTEND_URL,
+    "https://www.sarada.lol",    # Explicitly include with www
+    "https://sarada.lol",        # Explicitly include without www
+    "http://www.sarada.lol",    # HTTP version with www
+    "http://sarada.lol",        # HTTP version without www
+    "http://localhost:5173",     # For local Svelte development
+    "http://127.0.0.1:5173"      # Also for local Svelte development
+]
+
+# Configure CORS more specifically
+CORS(app, resources={r"/api/*": {"origins": ALLOWED_ORIGINS, 
+                               "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"], 
+                               "allow_headers": ["Content-Type", "Authorization"], 
+                               "supports_credentials": True}})
 
 # Database configuration
 # Use a path that works in both local development and Azure deployment
@@ -248,18 +264,20 @@ Returns:
 '''
 @app.route('/api/posts', methods=['GET'])
 def get_posts():
-    db = get_db()
-    cursor = db.execute('SELECT id, title, content, timestamp FROM posts ORDER BY timestamp DESC')
-    
-    # Convert rows to dictionaries, potentially creating excerpts
-    posts = []
-    for row in cursor.fetchall():
-        post_dict = dict(id=row['id'], title=row['title'], content=row['content'], timestamp=row['timestamp'])
-        # Create a simple excerpt (e.g., first 100 characters)
-        post_dict['excerpt'] = (row['content'][:100] + '...') if len(row['content']) > 100 else row['content']
-        posts.append(post_dict)
-    
-    return jsonify(posts)
+    app.logger.info("Attempting to fetch posts from /api/posts") # Add logging
+    try:
+        db = get_db()
+        cursor = db.execute(
+            'SELECT p.id, p.title, p.content, p.timestamp, u.username ' 
+            'FROM posts p JOIN users u ON p.user_id = u.id ORDER BY p.timestamp DESC'
+        )
+        posts = cursor.fetchall()
+        app.logger.info(f"Found {len(posts)} posts") # Log success
+        # Convert rows to dictionaries
+        return jsonify([dict(ix) for ix in posts])
+    except Exception as e:
+        app.logger.error(f"Error fetching posts: {e}", exc_info=True) # Log error details
+        return jsonify({"error": "Failed to fetch posts", "details": str(e)}), 500
 
 '''
 Get a single post by its ID.
