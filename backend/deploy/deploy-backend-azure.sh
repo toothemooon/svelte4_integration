@@ -76,8 +76,8 @@ echo "Azure login verified."
 # Restarting the app before deployment can sometimes help
 echo "Restarting Azure App Service before deployment..."
 az webapp restart --resource-group "$RESOURCE_GROUP" --name "$APP_NAME"
-echo "Waiting 15 seconds for the app to begin restarting..."
-sleep 15
+echo "Waiting 30 seconds for the app to fully restart before deploying..."
+sleep 30
 
 echo "Deploying package to Azure App Service: $APP_NAME in $RESOURCE_GROUP..."
 
