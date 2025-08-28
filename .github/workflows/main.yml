@@ -1,0 +1,54 @@
+name: CI/CD Pipeline  # 工作流名称
+
+# 触发条件：推送到 main 分支或 PR 到 main 分支时触发
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+# 任务定义
+jobs:
+  build-and-test:  # 任务1：构建和测试
+    runs-on: ubuntu-latest  # 运行环境（可选 ubuntu/macos/windows）
+    
+    steps:
+      - name: Checkout code  # 拉取代码
+        uses: actions/checkout@v4  # 使用官方 Action
+      
+      - name: Set up environment  # 配置环境（如 Node.js）
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'  # 缓存依赖加速构建
+      
+      - name: Install dependencies  # 安装依赖
+        run: npm ci
+      
+      - name: Run tests  # 运行测试
+        run: npm test
+      
+      - name: Build project  # 构建项目
+        run: npm run build
+
+  deploy:  # 任务2：部署（仅在 main 分支推送成功后执行）
+    needs: build-and-test  # 依赖 build-and-test 任务成功
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'  # 仅在 main 分支执行
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Deploy to server  # 部署到服务器（示例：使用 SSH）
+        uses: appleboy/ssh-action@master  # 第三方 SSH Action
+        with:
+          host: ${{ secrets.SERVER_HOST }}  # 从 Secrets 读取配置
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd /path/to/project
+            git pull
+            npm ci
+            npm run build
+            pm2 restart app  # 假设使用 pm2 管理服务
